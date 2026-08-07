@@ -1,27 +1,37 @@
 <script lang="ts">
-  let { form } = $props();
+  let { form, data } = $props();
 </script>
 
-<h1>Sign in</h1>
-<p class="muted">
-  AgentDraft v1 is invite-only. Paste an API key created by the service owner. The key is
-  stored in an httpOnly cookie on this origin and is never exposed to browser scripts.
+<svelte:head><title>Sign in — agentdraft</title></svelte:head>
+
+<h1>SIGN <span class="accent">IN.</span></h1>
+<p style="max-width:32rem">
+  Paste a scoped API key. It is stored in an httpOnly cookie on this origin and is never
+  exposed to browser scripts.
 </p>
 
-<div class="card" style="max-width:480px">
-  <form method="POST">
-    <label for="api_key">API key</label>
-    <input id="api_key" name="api_key" type="password" placeholder="ad_..." autocomplete="off" required />
-    {#if form?.message}
-      <p class="error">{form.message}</p>
-    {/if}
-    <div style="margin-top:1rem">
-      <button class="btn" type="submit">Sign in</button>
-    </div>
-  </form>
+<div class="panel panel--accent" style="max-width:30rem">
+  <div class="panel__head">api key</div>
+  <div class="panel__body">
+    <form method="POST">
+      <label for="api_key">Key</label>
+      <input id="api_key" name="api_key" type="password" placeholder="ad_..." autocomplete="off" required />
+      {#if form?.message}<p class="error" style="margin-top:.75rem">{form.message}</p>{/if}
+      <div style="margin-top:1.15rem">
+        <button class="btn" type="submit">Sign in</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<p class="muted">
-  No key yet? The owner bootstraps the first key via <code>POST /api/bootstrap</code>,
-  then mints scoped keys on the API Keys page.
+{#if data?.googleEnabled}
+  <div class="card" style="max-width:30rem">
+    <h3>Or continue with Google</h3>
+    <a class="btn btn--ghost" href="/auth/google">Sign in with Google</a>
+  </div>
+{/if}
+
+<p class="subtle" style="font-size:13px">
+  No key yet? The instance owner bootstraps the first key via
+  <code>POST /api/bootstrap</code>, then mints scoped keys on the Keys page.
 </p>

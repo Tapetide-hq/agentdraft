@@ -18,9 +18,14 @@ drafts.get("/", async (c) => {
   const auth = c.get("auth");
   const project = c.req.query("project");
   const limit = Math.min(parseInt(c.req.query("limit") ?? "100", 10) || 100, 500);
+  // source_format lives on draft_versions, so surface the CURRENT version's format via
+  // a correlated subquery instead of duplicating the column onto drafts (which would
+  // then need keeping in sync on every upload — a drift bug waiting to happen).
+  const fmt =
+    "(SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format";
   const sql = project
-    ? "SELECT * FROM drafts WHERE account_id = ? AND project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?"
-    : "SELECT * FROM drafts WHERE account_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?";
+    ? `SELECT drafts.*, ${fmt} FROM drafts WHERE account_id = ? AND project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`
+    : `SELECT drafts.*, ${fmt} FROM drafts WHERE account_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`;
   const stmt = project
     ? c.env.DB.prepare(sql).bind(auth.account.id, project, limit)
     : c.env.DB.prepare(sql).bind(auth.account.id, limit);
@@ -34,13 +39,13 @@ drafts.get("/:id", async (c) => {
   const auth = c.get("auth");
   const id = c.req.param("id");
   const draft = await c.env.DB.prepare(
-    "SELECT * FROM drafts WHERE id = ? AND account_id = ? AND deleted_at IS NULL",
+    "SELECT drafts.*, (SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format FROM drafts WHERE id = ? AND account_id = ? AND deleted_at IS NULL",
   )
     .bind(id, auth.account.id)
     .first<Draft>();
   if (!draft) return jsonError(c, 404, "E_DRAFT_NOT_FOUND", "Draft not found.");
   const versions = await c.env.DB.prepare(
-    "SELECT id, version_number, content_hash, file_size, title, original_filename, cli_version, git_branch, git_commit_sha, git_dirty, created_at FROM draft_versions WHERE draft_id = ? ORDER BY version_number DESC",
+    "SELECT id, version_number, content_hash, file_size, title, original_filename, cli_version, git_branch, git_commit_sha, git_dirty, source_format, created_at FROM draft_versions WHERE draft_id = ? ORDER BY version_number DESC",
   )
     .bind(id)
     .all();

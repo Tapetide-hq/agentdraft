@@ -54,6 +54,7 @@ export interface Draft {
   disabled_at: string | null;
   disabled_reason: string | null;
   deleted_at: string | null;
+  source_format: string | null;
   created_at: string;
   updated_at: string;
 }

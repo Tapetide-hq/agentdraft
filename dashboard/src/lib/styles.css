@@ -130,7 +130,7 @@ a:hover {
 .container {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 2.5rem var(--gutter) 4rem;
+  padding: 2.5rem var(--gutter) 2.5rem;
 }
 
 /* hazard marquee — the WIP ticker, part of the aesthetic not a bolt-on */
@@ -166,9 +166,23 @@ a:hover {
 .nav {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.9rem var(--gutter);
+  padding: 0.9rem 0; /* bar is full-bleed; the inner wrapper owns the gutter */
   border-bottom: var(--hairline) solid var(--rule);
+}
+/* Align the nav and footer CONTENT with the centred .container measure. Without this
+   they sit at the raw page gutter (measured 40px vs the container's 93px) and the
+   header/footer visibly escape the content column. The borders still span full width,
+   which is the intended brutalist full-bleed rule. */
+.nav__inner,
+.footer__inner {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 var(--gutter); /* matches .container's inner padding so text aligns */
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 .nav .brand {
   font-family: var(--font-display);
@@ -321,13 +335,26 @@ pre {
   background: var(--bg);
   border: var(--hairline) solid var(--border);
   padding: 0.9rem 1rem;
-  overflow: auto;
   font-size: 13px;
   line-height: 1.55;
   margin: 0 0 1rem;
+  /* Long URLs/commands must WRAP, not clip. A horizontal scrollbar inside a small
+     panel reads as a rendering bug (confirmed: scrollWidth exceeded clientWidth). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 pre code {
   font-size: 13px;
+}
+
+/* REAL DEFECT 2: inline <code> in prose had no visual treatment, so a command in a
+   numbered list read as plain text while the same content got a bordered box in the
+   panels above. `pre code` is excluded so fenced blocks keep their own styling. */
+code:not(pre code) {
+  background: var(--bg);
+  border: var(--hairline) solid var(--border);
+  padding: 0.08em 0.35em;
+  font-size: 0.9em;
 }
 
 .pill {
@@ -382,7 +409,8 @@ pre code {
 
 .footer {
   border-top: var(--hairline) solid var(--rule);
-  padding: 1.5rem var(--gutter);
+  padding: 1.5rem 0;
+  margin-top: 0;
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -414,4 +442,25 @@ pre code {
     gap: 1rem;
     flex-wrap: wrap;
   }
+}
+
+/* Two-up step panels. NOT .grid/auto-fill: with two children auto-fill emitted three
+   column tracks (verified in the DOM), so the row spanned only 800 of the 1000px
+   measure and the composition read as ragged. min-height equalises the code boxes so
+   a wrapped URL doesn't push one caption below the other. */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+.steps .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+.steps .panel__body { flex: 1; }
+.steps pre { min-height: 4.6em; margin-bottom: 0.9rem; }
+/* Panel lists: default 40px padding pushed items out of step with the panel heading. */
+.panel__body ol,
+.panel__body ul { padding-left: 1.35rem; }
+@media (max-width: 720px) {
+  .steps { grid-template-columns: 1fr; }
+  .steps pre { min-height: 0; }
 }
