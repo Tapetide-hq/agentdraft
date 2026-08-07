@@ -72,6 +72,38 @@ non-UTF-8 bodies are rejected.
 The CLI performs only transport-level pre-checks (size, UTF-8, empty). The server is the
 sole validation authority — a second full validator would drift from it.
 
+## Byte-for-byte serving vs CDN HTML injection (self-hosting hazard)
+
+WebHost promises that a published document is served byte-for-byte. Cloudflare zone
+features that **rewrite HTML in flight** silently break that promise *and* inject
+`<script>` into content whose entire security model guarantees none:
+
+- **Web Analytics / RUM auto-install** — appends a `cloudflareinsights.com/beacon.min.js`
+  `<script>` tag.
+- **Email Obfuscation** — rewrites `mailto:` links and injects `/cdn-cgi/` script.
+- **Rocket Loader** — rewrites and defers scripts.
+- **Mirage** — rewrites `<img>` tags.
+
+Several of these are **gated on a browser user-agent**, so `curl` with its default UA
+sees clean bytes while every real visitor gets injected HTML. Testing only with a
+default-UA client will FALSE-PASS this.
+
+If you serve content through a proxied Cloudflare zone (not `*.workers.dev`), disable
+them for the content host. A Configuration Rule scoped to the host is the correct fix —
+it avoids changing zone-wide settings that other apps on the same zone may rely on:
+
+```
+Expression: (http.host eq "your-content-host.example.com")
+Action: set_config
+  disable_rum: true
+  email_obfuscation: false
+  rocket_loader: false
+  mirage: false
+```
+
+`tests/brutal.sh` asserts this under a spoofed browser user-agent on both the canonical
+and `/raw` paths, and asserts no `<script>` reaches a served document.
+
 ## API key security
 
 - Keys are `wh_` + 40 chars of CSPRNG output (~200 bits of entropy).

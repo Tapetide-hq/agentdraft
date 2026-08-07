@@ -194,6 +194,24 @@ if [ "$hc" = "201" ] && [ -n "$DID" ]; then
   printf '%s' "$FID" > /tmp/_bf_src.html
   curl -s "$CONTENT/d/$DID" -o /tmp/_bf_got.html
   if cmp -s /tmp/_bf_src.html /tmp/_bf_got.html; then ok "served bytes identical to uploaded"; else bad "served bytes identical to uploaded" "cmp differs"; fi
+
+  # CRITICAL: a CDN/proxy can inject HTML (Cloudflare Web Analytics/RUM, Email
+  # Obfuscation, Rocket Loader) and several of those are gated on a BROWSER user-agent.
+  # curl's default UA does NOT trigger them, so testing only with curl's default
+  # FALSE-PASSES the product's core promise. Re-check as a browser would, on both the
+  # canonical and /raw paths, and assert no <script> ever reaches served content.
+  BUA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+  for path in "/d/$DID" "/d/$DID/raw"; do
+    injected=0; mismatched=0
+    for _ in 1 2 3 4; do
+      curl -s "$CONTENT$path" -H 'accept: text/html,application/xhtml+xml' -H "user-agent: $BUA" -o /tmp/_bf_ua.html
+      cmp -s /tmp/_bf_src.html /tmp/_bf_ua.html || mismatched=$((mismatched+1))
+      grep -qi 'cloudflareinsights\|rocket-loader\|/cdn-cgi/' /tmp/_bf_ua.html && injected=$((injected+1))
+    done
+    assert_eq "browser-UA bytes identical ($path)" 0 "$mismatched"
+    assert_eq "no CDN script injected ($path)"     0 "$injected"
+  done
+  if grep -qi '<script' /tmp/_bf_got.html; then bad "no <script> in served document" "found <script>"; else ok "no <script> in served document"; fi
   assert_eq "content-type is text/html; charset=utf-8" "text/html; charset=utf-8" \
     "$(curl -sI "$CONTENT/d/$DID" | tr -d '\r' | awk 'tolower($1)=="content-type:"{$1="";sub(/^ /,"");print}')"
 else
