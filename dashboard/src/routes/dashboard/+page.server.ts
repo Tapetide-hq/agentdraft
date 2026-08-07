@@ -9,6 +9,7 @@ interface Draft {
   updated_at: string;
   public_url: string;
   project_id: string | null;
+  source_format: string | null;
 }
 
 export const load: PageServerLoad = async ({ locals }) => {

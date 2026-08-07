@@ -1,6 +1,25 @@
 import { fail, redirect } from "@sveltejs/kit";
-import type { Actions } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
 import { apiFetch } from "$lib/server/api";
+
+// Ask the API whether Google OAuth is configured on this deployment. The button is
+// rendered only when it is genuinely usable — showing a dead sign-in button is worse
+// than not offering it.
+export const load: PageServerLoad = async ({ locals }) => {
+  try {
+    const res = await apiFetch(
+      { apiBase: locals.apiBase, apiKey: null, service: locals.apiService },
+      "/api/config",
+    );
+    if (res.ok) {
+      const cfg = (await res.json()) as { google_oauth_enabled?: boolean };
+      return { googleEnabled: !!cfg.google_oauth_enabled };
+    }
+  } catch {
+    /* config is advisory; fall back to key-only sign-in */
+  }
+  return { googleEnabled: false };
+};
 
 export const actions: Actions = {
   default: async ({ request, cookies, locals }) => {
