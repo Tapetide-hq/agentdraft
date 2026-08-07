@@ -28,6 +28,7 @@ export interface SessionRow {
   created_at: string;
   expires_at: string;
   revoked_at: string | null;
+  auth_method: string;
 }
 
 export interface Project {
@@ -85,6 +86,9 @@ export interface AuthContext {
   via: "key" | "session";
   keyId?: string;
   scopes: string[];
+  // How the principal proved identity. Only "google" satisfies the key-minting gate:
+  // a leaked API key must not be able to mint further keys.
+  authMethod: "key" | "google";
 }
 
 export interface UploadMetadata {

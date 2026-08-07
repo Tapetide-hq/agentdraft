@@ -14,6 +14,10 @@ export interface ApiCtx {
   apiBase: string;
   apiKey: string | null;
   service?: ApiService | null;
+  // Session id minted by Google sign-in. Forwarded as the API's session cookie so a
+  // Google-authenticated visitor is recognised as authMethod="google" server-side —
+  // which is what the API-key-minting gate checks.
+  sessionId?: string | null;
 }
 
 export async function apiFetch(
@@ -23,6 +27,7 @@ export async function apiFetch(
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   if (ctx.apiKey) headers.set("Authorization", `Bearer ${ctx.apiKey}`);
+  if (ctx.sessionId) headers.set("Cookie", `__Host-agentdraft_session=${ctx.sessionId}`);
   if (init.body) headers.set("Content-Type", "application/json");
   const url = `${ctx.apiBase}${path}`;
   if (ctx.service) {

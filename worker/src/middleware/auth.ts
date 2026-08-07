@@ -41,6 +41,7 @@ async function resolveAuth(c: Ctx): Promise<AuthContext | null> {
       via: "key",
       keyId: row.id,
       scopes: row.scopes.split(",").map((s) => s.trim()).filter(Boolean),
+      authMethod: "key",
     };
   }
 
@@ -57,7 +58,12 @@ async function resolveAuth(c: Ctx): Promise<AuthContext | null> {
       .bind(sess.account_id)
       .first<Account>();
     if (!account) return null;
-    return { account, via: "session", scopes: ["upload", "read", "manage"] };
+    return {
+      account,
+      via: "session",
+      scopes: ["upload", "read", "manage"],
+      authMethod: sess.auth_method === "google" ? "google" : "key",
+    };
   }
 
   return null;
@@ -94,6 +100,42 @@ export function requireSession() {
       return jsonError(c, 403, "E_SESSION_REQUIRED", "This endpoint requires a dashboard session.");
     }
     c.set("auth", auth);
+    await next();
+  };
+}
+
+
+// Require a VERIFIED GOOGLE IDENTITY, not merely a valid credential.
+//
+// Minting an API key is the one operation that creates durable new access, so it must
+// not be reachable with a credential that could itself have leaked. An API key (even a
+// manage-scoped one) is a bearer token that may sit in CI config, a dotfile, or an
+// agent's environment; if a leaked key could mint more keys, revoking the leaked one
+// would not contain the breach. Requiring a Google-backed session means an attacker
+// needs the human's Google account, which we do not hold and cannot leak.
+//
+// When Google OAuth is NOT configured on a deployment this gate is DISABLED, otherwise a
+// self-hosted instance without an IdP could never mint a key and would be bricked. The
+// gate is therefore only as strong as the deployment's configuration, which is stated
+// plainly in SECURITY.md rather than implied to be absolute.
+export function requireGoogleIdentity() {
+  return async (c: Context<{ Bindings: Env; Variables: { auth: AuthContext } }>, next: Next) => {
+    const oauthOn =
+      c.env.GOOGLE_OAUTH_ENABLED === "true" && !!c.env.GOOGLE_CLIENT_ID && !!c.env.GOOGLE_CLIENT_SECRET;
+    if (!oauthOn) {
+      await next();
+      return;
+    }
+    const auth = c.get("auth");
+    if (!auth) return jsonError(c, 401, "E_UNAUTHENTICATED", "Not authenticated.");
+    if (auth.authMethod !== "google") {
+      return jsonError(
+        c,
+        403,
+        "E_GOOGLE_SIGNIN_REQUIRED",
+        "Creating API keys requires signing in with Google.",
+      );
+    }
     await next();
   };
 }

@@ -79,10 +79,20 @@ no new R2 object was written. A new version row is still created (history and it
 metadata stay accurate).
 422 if HTML is rejected — includes an `errors: [{code, message}]` array.
 
+### Google sign-in  *(dormant unless configured)*
+```
+GET  /api/auth/google/start      Returns { authorize_url } to redirect the user to
+POST /api/auth/google/callback   Body { code, state } -> verifies id_token, mints session
+```
+Both return **503 `E_OAUTH_NOT_CONFIGURED`** when `GOOGLE_OAUTH_ENABLED` is not `"true"`
+or the client credentials are absent.
+
 ### API keys  *(scope: manage)*
 ```
 GET    /api/api-keys        List keys (never returns hashes/full keys)
 POST   /api/api-keys        Create { name, scopes[] } → returns full key ONCE
+                            Requires a Google-backed session when OAuth is configured
+                            (403 E_GOOGLE_SIGNIN_REQUIRED otherwise)
 DELETE /api/api-keys/:id    Revoke
 ```
 
