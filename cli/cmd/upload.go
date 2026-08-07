@@ -7,13 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Hitesh-Sisara/webhost/cli/internal/api"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/auth"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/config"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/drafts"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/git"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/validate"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/version"
+	"github.com/Tapetide-hq/webhost/cli/internal/api"
+	"github.com/Tapetide-hq/webhost/cli/internal/auth"
+	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/webhost/cli/internal/drafts"
+	"github.com/Tapetide-hq/webhost/cli/internal/git"
+	"github.com/Tapetide-hq/webhost/cli/internal/validate"
+	"github.com/Tapetide-hq/webhost/cli/internal/version"
 )
 
 var (

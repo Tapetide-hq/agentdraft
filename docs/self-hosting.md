@@ -11,7 +11,7 @@ WebHost runs entirely on Cloudflare's free tier.
 ## 1. Clone and create resources
 
 ```bash
-git clone https://github.com/Hitesh-Sisara/webhost.git
+git clone https://github.com/Tapetide-hq/webhost.git
 cd webhost
 
 wrangler d1 create webhost-db          # note the database_id

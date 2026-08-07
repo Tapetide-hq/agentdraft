@@ -65,7 +65,7 @@ webhost upload plan.html --project "migration"
 See [docs/self-hosting.md](./docs/self-hosting.md) for the full guide. In short:
 
 ```bash
-git clone https://github.com/Hitesh-Sisara/webhost.git && cd webhost
+git clone https://github.com/Tapetide-hq/webhost.git && cd webhost
 wrangler d1 create webhost-db          # put the id in worker/wrangler.jsonc
 wrangler r2 bucket create webhost-html
 wrangler kv namespace create webhost-ratelimit

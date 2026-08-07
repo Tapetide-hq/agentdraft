@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Hitesh-Sisara/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/webhost/cli/internal/config"
 )
 
 const filePerm = 0o600

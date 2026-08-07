@@ -1,4 +1,4 @@
-module github.com/Hitesh-Sisara/webhost/cli
+module github.com/Tapetide-hq/webhost/cli
 
 go 1.24
 

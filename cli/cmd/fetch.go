@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Hitesh-Sisara/webhost/cli/internal/api"
-	"github.com/Hitesh-Sisara/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/webhost/cli/internal/api"
+	"github.com/Tapetide-hq/webhost/cli/internal/config"
 )
 
 var (

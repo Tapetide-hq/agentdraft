@@ -1,6 +1,6 @@
 package main
 
-import "github.com/Hitesh-Sisara/webhost/cli/cmd"
+import "github.com/Tapetide-hq/webhost/cli/cmd"
 
 func main() {
 	cmd.Execute()

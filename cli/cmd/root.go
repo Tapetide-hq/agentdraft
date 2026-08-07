@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Hitesh-Sisara/webhost/cli/internal/version"
+	"github.com/Tapetide-hq/webhost/cli/internal/version"
 )
 
 var rootCmd = &cobra.Command{

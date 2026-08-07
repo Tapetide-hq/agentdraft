@@ -1,9 +1,9 @@
 #!/bin/sh
 # WebHost CLI installer. Downloads the latest release binary for your platform.
-# Usage: curl -fsSL https://raw.githubusercontent.com/Hitesh-Sisara/webhost/main/cli/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/webhost/main/cli/install.sh | sh
 set -e
 
-REPO="Hitesh-Sisara/webhost"
+REPO="Tapetide-hq/webhost"
 BIN="webhost"
 INSTALL_DIR="${WEBHOST_INSTALL_DIR:-$HOME/.local/bin}"
 

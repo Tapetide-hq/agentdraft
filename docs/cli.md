@@ -6,10 +6,10 @@ The `webhost` CLI is a single Go binary with no runtime dependencies.
 
 ```bash
 # From source (requires Go 1.24+)
-go install github.com/Hitesh-Sisara/webhost/cli@latest
+go install github.com/Tapetide-hq/webhost/cli@latest
 
 # Or download a release binary
-curl -fsSL https://raw.githubusercontent.com/Hitesh-Sisara/webhost/main/cli/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/webhost/main/cli/install.sh | sh
 ```
 
 ## Configuration
