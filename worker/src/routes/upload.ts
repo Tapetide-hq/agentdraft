@@ -106,16 +106,47 @@ upload.post("/", async (c) => {
   if (!allocated) return jsonError(c, 500, "E_INTERNAL", "Version allocation failed.");
   const versionNumber = allocated.last_allocated_version;
   const versionId = newId("ver_");
-  const key = objectKey(draft.id, versionId);
 
-  // (3) R2 PUT FIRST. An orphan R2 object is harmless garbage; a D1 row pointing at a
-  // missing object is a 500 on a public URL. Never invert this ordering.
-  await putHtml(c.env, key, html, {
-    draft_id: draft.id,
-    version_number: String(versionNumber),
-    content_hash: contentHash,
-    uploaded_at: new Date().toISOString(),
-  });
+  // (3) Content deduplication. Re-uploading unchanged bytes is the common case for an
+  // agent that regenerates a document each run. If this draft already stored an object
+  // with the same content hash, REUSE that object key: we skip the R2 write (a Class A
+  // op) and store no duplicate bytes, while still recording a new version row so the
+  // history and its metadata (git sha, timestamp) stay accurate.
+  //
+  // Scoped per-draft on purpose: sharing objects across drafts would make one draft's
+  // deletion able to break another's content.
+  const dupe = await c.env.DB.prepare(
+    "SELECT object_key FROM draft_versions WHERE draft_id = ? AND content_hash = ? LIMIT 1",
+  )
+    .bind(draft.id, contentHash)
+    .first<{ object_key: string }>();
+
+  let key: string;
+  let deduped = false;
+  if (dupe) {
+    // Trust the row only if the object is genuinely still present — a stale row
+    // pointing at a deleted object would produce a 404 on a live public URL.
+    const stillThere = await c.env.STORAGE.head(dupe.object_key);
+    if (stillThere) {
+      key = dupe.object_key;
+      deduped = true;
+    } else {
+      key = objectKey(draft.id, versionId);
+    }
+  } else {
+    key = objectKey(draft.id, versionId);
+  }
+
+  // R2 PUT BEFORE the D1 row. An orphan R2 object is harmless garbage; a D1 row
+  // pointing at a missing object is a 500 on a public URL. Never invert this ordering.
+  if (!deduped) {
+    await putHtml(c.env, key, html, {
+      draft_id: draft.id,
+      version_number: String(versionNumber),
+      content_hash: contentHash,
+      uploaded_at: new Date().toISOString(),
+    });
+  }
 
   // (4) D1 batch: insert the version row AND advance published_version via MAX so
   // out-of-order concurrent finishers cannot move "latest" backward.
@@ -158,7 +189,7 @@ upload.post("/", async (c) => {
   const version = await c.env.DB.prepare("SELECT * FROM draft_versions WHERE id = ?")
     .bind(versionId)
     .first<DraftVersion>();
-  return c.json(makeResponse(c.env, draft.id, version!, result.warnings, false), 201);
+  return c.json(makeResponse(c.env, draft.id, version!, result.warnings, false, deduped), 201);
 });
 
 function makeResponse(
@@ -167,6 +198,7 @@ function makeResponse(
   v: DraftVersion,
   warnings: { code: string; message: string }[],
   idempotentReplay: boolean,
+  contentDeduplicated = false,
 ) {
   const base = env.CONTENT_BASE_URL.replace(/\/$/, "");
   return {
@@ -181,6 +213,9 @@ function makeResponse(
     title: v.title,
     warnings,
     idempotent_replay: idempotentReplay,
+    // True when these exact bytes already existed for this draft, so no new R2 object
+    // was written. A new version row is still created.
+    content_deduplicated: contentDeduplicated,
   };
 }
 

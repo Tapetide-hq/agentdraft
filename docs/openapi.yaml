@@ -57,6 +57,11 @@ components:
         version_url: { type: string, format: uri }
         title: { type: string }
         idempotent_replay: { type: boolean }
+        content_deduplicated:
+          type: boolean
+          description: >-
+            True when identical bytes already existed for this draft, so no new R2
+            object was written. A new version row is still created.
         warnings:
           type: array
           items:

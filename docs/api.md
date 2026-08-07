@@ -51,9 +51,13 @@ Header (optional): `Idempotency-Key: <k>`.
   "version_url": ".../d/abc123/v/3",
   "title": "…",
   "warnings": [],
-  "idempotent_replay": false
+  "idempotent_replay": false,
+  "content_deduplicated": false
 }
 ```
+`content_deduplicated: true` means these exact bytes already existed for this draft, so
+no new R2 object was written. A new version row is still created (history and its git
+metadata stay accurate).
 422 if HTML is rejected — includes an `errors: [{code, message}]` array.
 
 ### API keys  *(scope: manage)*
@@ -88,6 +92,12 @@ GET /d/:id/v/:n/raw   Alias
 Response headers include a strict CSP, `X-Robots-Tag: noindex`,
 `Cross-Origin-Resource-Policy`, `X-WebHost-Draft-Id`, `X-WebHost-Version`, and an `ETag`
 of the content hash. Disabled drafts return 451; private drafts 403; missing 404.
+
+**Conditional requests** are supported: send `If-None-Match: <etag>` to get a `304 Not
+Modified` with no body (handles `*`, `W/` weak tags, and comma-separated lists). This is
+honoured on cache hits too. `HEAD` returns headers plus `Content-Length` without reading
+the object body. Versioned URLs (`/v/:n`) are immutable and cached for a year; the
+mutable latest URL caches for 60s.
 
 ## Rate limits
 Uploads 100/hour, reads 1000/hour (per key). 429 with `Retry-After` on exceed.

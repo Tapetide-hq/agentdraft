@@ -56,6 +56,21 @@ function securityHeaders(extra: Record<string, string> = {}): Record<string, str
   };
 }
 
+// RFC 9110 If-None-Match: a comma-separated list of entity-tags, or "*". Tags may
+// carry a W/ prefix, which is stripped for comparison (weak comparison is what a
+// conditional GET requires). Returns true when the client's cached copy is current.
+function ifNoneMatchMatches(header: string | null, etag: string): boolean {
+  if (!header) return false;
+  const strip = (t: string) => t.trim().replace(/^W\//, "");
+  const want = strip(etag);
+  return header
+    .split(",")
+    .some((t) => {
+      const got = strip(t);
+      return got === "*" || got === want;
+    });
+}
+
 function textResponse(status: number, msg: string): Response {
   return new Response(msg, {
     status,
@@ -90,12 +105,25 @@ export default {
     const draftId = m[1];
     const explicitVersion = m[2] ? parseInt(m[2], 10) : null;
 
-    // Cache hot reads via the Cache API (keyed on the full request URL).
+    const ifNoneMatch = request.headers.get("if-none-match");
+
+    // Cache hot reads via the Cache API (keyed on the URL alone, so conditional
+    // headers don't fragment the cache).
     const cache = caches.default;
     const cacheKey = new Request(url.toString(), { method: "GET" });
     if (request.method === "GET") {
       const hit = await cache.match(cacheKey);
-      if (hit) return hit;
+      if (hit) {
+        // A cache hit must STILL honour If-None-Match. Because the cache key omits
+        // conditional headers, returning `hit` directly would answer a revalidation
+        // with a full 200 body — silently defeating the 304 path for exactly the
+        // hot objects it matters most for.
+        const hitEtag = hit.headers.get("etag");
+        if (hitEtag && ifNoneMatchMatches(ifNoneMatch, hitEtag)) {
+          return new Response(null, { status: 304, headers: hit.headers });
+        }
+        return hit;
+      }
     }
 
     const draft = await env.DB.prepare(
@@ -133,36 +161,50 @@ export default {
     }
     if (!version) return textResponse(404, "No such version.");
 
-    const obj = await env.STORAGE.get(version.object_key);
-    if (!obj) {
-      // D1 row without an R2 object — should be impossible given R2-first ordering.
-      return textResponse(404, "Content unavailable.");
-    }
-
     // Immutable versioned URLs cache hard; the mutable latest URL caches briefly.
     const immutable = explicitVersion != null;
     const cacheControl = immutable
       ? "public, max-age=31536000, immutable"
       : "public, max-age=60";
 
+    // The content hash IS the ETag: identical bytes always produce the same value, and
+    // stored objects are immutable, so it is a strong validator (no W/ prefix).
+    const etag = `"${version.content_hash}"`;
+
     const headers = securityHeaders({
       "Cache-Control": cacheControl,
-      ETag: `"${version.content_hash}"`,
+      ETag: etag,
       "X-WebHost-Draft-Id": draftId,
       "X-WebHost-Version": String(version.version_number),
     });
 
+    // Honour conditional requests BEFORE touching R2. Emitting an ETag without
+    // handling If-None-Match means every revalidation pays a full R2 read plus the
+    // whole body over the wire. A 304 costs one D1 lookup and zero R2 Class B ops.
+    if (ifNoneMatchMatches(ifNoneMatch, etag)) {
+      return new Response(null, { status: 304, headers });
+    }
+
+    // HEAD needs metadata only — use R2 head() so we never open a body we discard.
+    if (request.method === "HEAD") {
+      const meta = await env.STORAGE.head(version.object_key);
+      if (!meta) return textResponse(404, "Content unavailable.");
+      headers["Content-Length"] = String(meta.size);
+      return new Response(null, { status: 200, headers });
+    }
+
+    const obj = await env.STORAGE.get(version.object_key);
+    if (!obj) {
+      // D1 row without an R2 object — should be impossible given R2-first ordering.
+      return textResponse(404, "Content unavailable.");
+    }
+
     // Stream the R2 body straight through rather than buffering it with .text().
     // Documents are capped at 2 MiB by validation, but streaming keeps memory flat
     // regardless and starts the response sooner (Workers has a 128 MB limit).
-    const response = new Response(request.method === "HEAD" ? null : obj.body, {
-      status: 200,
-      headers,
-    });
+    const response = new Response(obj.body, { status: 200, headers });
 
-    if (request.method === "GET") {
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-    }
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
   },
 };

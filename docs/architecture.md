@@ -38,10 +38,17 @@ CLI/agent → webhost-api
 ### Serve (`GET /d/:id`)
 ```
 Browser → webhost-content
-  1. look up draft + resolve version in D1
-  2. GET blob from R2 (Cache API in front for hot reads)
-  3. respond with the exact bytes + strict CSP + noindex + no cookies
+  1. Cache API lookup (keyed on URL only, so conditional headers don't fragment it)
+     - on hit, STILL honour If-None-Match → 304, else return the cached response
+  2. look up draft + resolve version in D1
+  3. If-None-Match matches the content-hash ETag? → 304, no R2 read at all
+  4. HEAD? → R2 head() for metadata + Content-Length, never open a body
+  5. GET → stream obj.body straight through (no buffering)
+  6. respond with the exact bytes + strict CSP + noindex + no cookies
 ```
+The content hash IS the ETag (identical bytes → identical tag, and stored objects are
+immutable, so it's a strong validator). Versioned `/v/:n` URLs are immutable and cached
+for a year; the mutable latest URL caches 60s.
 
 ### Dashboard (BFF)
 ```
@@ -57,6 +64,14 @@ Browser → webhost-dashboard (SvelteKit server)
 `UPDATE … RETURNING`, race-free on D1 (no interactive transactions needed).
 `UNIQUE(draft_id, version_number)` is a backstop. `published_version` is advanced with
 `MAX()` so concurrent uploads finishing out of order cannot move "latest" backward.
+
+**Content deduplication.** Before writing, the upload path looks for an existing
+version of the *same draft* with the same content hash. If one exists and the object is
+confirmed still present in R2 (`head()`), the new version row reuses that object key —
+skipping the R2 write and storing no duplicate bytes, while keeping an accurate version
+history. Dedup is scoped per-draft on purpose: sharing objects across drafts would let
+one draft's deletion break another's content. The response reports
+`content_deduplicated`.
 
 R2 is written **before** the D1 version row. Crash outcomes:
 
