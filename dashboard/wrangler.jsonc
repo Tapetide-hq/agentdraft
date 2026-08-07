@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webhost-dashboard",
+  "main": ".svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".svelte-kit/cloudflare", "binding": "ASSETS" },
+  // Service binding to the API worker. A Worker cannot fetch a sibling Worker via its
+  // public *.workers.dev URL on the same account (loopback, CF error 1042); a service
+  // binding is the correct worker-to-worker path and is faster (no public hop).
+  "services": [{ "binding": "API", "service": "webhost-api" }],
+  "vars": {
+    // The dashboard is a BFF: it talks to the API worker server-side and holds the
+    // manage-scoped key in an httpOnly cookie on its OWN origin, so client JS never
+    // sees a credential and there is no cross-site cookie.
+    "API_BASE_URL": "https://webhost-api.tapetide.workers.dev",
+    "CONTENT_BASE_URL": "https://webhost-content.tapetide.workers.dev"
+  },
+  "observability": { "enabled": true }
+}

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./env.js";
 import type { AuthContext } from "./types.js";
-import { requireAuth, requireScope, requireSession } from "./middleware/auth.js";
+import { requireAuth, requireScope } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/ratelimit.js";
 import { jsonError } from "./lib/http.js";
 import uploadRoute from "./routes/upload.js";
@@ -85,9 +85,12 @@ app.use("/api/drafts/*", requireAuth(), rateLimit("read", 1000, 3600));
 app.use("/api/drafts", requireAuth(), rateLimit("read", 1000, 3600));
 app.route("/api/drafts", draftsRoute);
 
-// API key management requires a dashboard SESSION (not an API key managing itself).
-app.use("/api/api-keys/*", requireSession());
-app.use("/api/api-keys", requireSession());
+// API key management requires the "manage" scope. This blocks an upload/read key
+// from escalating to mint new keys, while allowing a manage-scoped key (or a dashboard
+// session, which carries manage) to administer keys. The dashboard uses a BFF that
+// holds a manage key server-side; /api/session remains a valid alternative integration.
+app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
+app.use("/api/api-keys", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
 app.route("/api/api-keys", keysRoute);
 
 // 404 + error envelopes.
