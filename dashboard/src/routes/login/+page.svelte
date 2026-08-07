@@ -1,8 +1,9 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { form, data } = $props();
 </script>
 
-<svelte:head><title>Sign in — agentdraft</title></svelte:head>
+<Seo title="Sign in — agentdraft" description="Sign in to agentdraft." path="/login" noindex />
 
 <h1>SIGN <span class="accent">IN.</span></h1>
 <p style="max-width:32rem">

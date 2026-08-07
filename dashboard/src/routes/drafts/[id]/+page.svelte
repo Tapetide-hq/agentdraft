@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { data } = $props();
   const draft = data.draft;
   let selected = $state<number>(draft.published_version ?? 1);
@@ -10,7 +11,7 @@
   const rawSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${selected}/raw`);
 </script>
 
-<svelte:head><title>{draft.title || "Untitled"} — agentdraft</title></svelte:head>
+<Seo title={`${draft.title || "Untitled"} — agentdraft`} description="Draft version history and preview." path={`/drafts/${draft.id}`} noindex />
 
 <div class="row" style="justify-content:space-between;align-items:flex-end">
   <h1 style="margin-bottom:0">{draft.title || "UNTITLED"}</h1>

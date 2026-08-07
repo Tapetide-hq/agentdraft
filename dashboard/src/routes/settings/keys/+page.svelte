@@ -1,8 +1,9 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { data, form } = $props();
 </script>
 
-<svelte:head><title>API Keys — agentdraft</title></svelte:head>
+<Seo title="API Keys — agentdraft" description="Create and revoke scoped API keys." path="/settings/keys" noindex />
 
 <h1>API <span class="accent">KEYS.</span></h1>
 <p style="max-width:34rem">
