@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../env.js";
 import type { AuthContext } from "../types.js";
 import { newId } from "../services/id.js";
-import { jsonError } from "../lib/http.js";
+import { jsonError, readJsonObject, badStringField } from "../lib/http.js";
 
 const projects = new Hono<{ Bindings: Env; Variables: { auth: AuthContext } }>();
 
@@ -20,12 +20,11 @@ projects.get("/", async (c) => {
 // POST /api/projects  { name, description?, repo_url? }
 projects.post("/", async (c) => {
   const auth = c.get("auth");
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return jsonError(c, 400, "E_BAD_JSON", "Body must be JSON.");
-  }
+  const parsedBody = await readJsonObject(c);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+  const badField = badStringField(c, body, ["name", "description", "repo_url"]);
+  if (badField) return badField;
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name) return jsonError(c, 400, "E_NO_NAME", "Field 'name' is required.");
   const id = newId("proj_", 12);
@@ -52,12 +51,11 @@ projects.patch("/:id", async (c) => {
     .bind(id, auth.account.id)
     .first<{ id: string }>();
   if (!owned) return jsonError(c, 404, "E_PROJECT_NOT_FOUND", "Project not found.");
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return jsonError(c, 400, "E_BAD_JSON", "Body must be JSON.");
-  }
+  const parsedBody = await readJsonObject(c);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+  const badField = badStringField(c, body, ["name", "description", "repo_url"]);
+  if (badField) return badField;
   const fields: string[] = [];
   const vals: unknown[] = [];
   for (const f of ["name", "description", "repo_url"]) {

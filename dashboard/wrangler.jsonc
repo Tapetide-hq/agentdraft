@@ -13,8 +13,8 @@
     // The dashboard is a BFF: it talks to the API worker server-side and holds the
     // manage-scoped key in an httpOnly cookie on its OWN origin, so client JS never
     // sees a credential and there is no cross-site cookie.
-    "API_BASE_URL": "https://webhost-api.tapetide.workers.dev",
-    "CONTENT_BASE_URL": "https://webhost-content.tapetide.workers.dev"
+    "API_BASE_URL": "https://api.postplan.tapetide.com",
+    "CONTENT_BASE_URL": "https://postplan.tapetide.com"
   },
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

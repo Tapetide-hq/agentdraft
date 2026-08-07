@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../env.js";
 import { newId, newApiKey } from "../services/id.js";
 import { hashApiKey, secretEquals } from "../services/crypto.js";
-import { jsonError } from "../lib/http.js";
+import { jsonError, readJsonObject, badStringField } from "../lib/http.js";
 
 const bootstrap = new Hono<{ Bindings: Env }>();
 
@@ -28,12 +28,11 @@ bootstrap.post("/", async (c) => {
     return jsonError(c, 409, "E_ALREADY_BOOTSTRAPPED", "An owner account already exists.");
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    body = await c.req.json();
-  } catch {
-    /* empty body is allowed */
-  }
+  const parsedBody = await readJsonObject(c, { allowEmpty: true });
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+  const badField = badStringField(c, body, ["name", "email"]);
+  if (badField) return badField;
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "Owner";
   const email = typeof body.email === "string" ? body.email : null;
 

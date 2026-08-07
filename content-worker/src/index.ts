@@ -107,8 +107,28 @@ export default {
 
     const ifNoneMatch = request.headers.get("if-none-match");
 
-    // Cache hot reads via the Cache API (keyed on the URL alone, so conditional
-    // headers don't fragment the cache).
+    // The draft's STATUS GATE must run before any cache lookup.
+    //
+    // Serving a cache hit first is a security hole: a draft that has since been
+    // soft-deleted, disabled, or made private would keep being served publicly from
+    // cache. Purging on delete is NOT a fix — the Cache API is per-colo, so a delete
+    // executed in one colo cannot evict copies held by the others. The only correct
+    // design is to authorize against D1 on every request and treat the cache purely as
+    // an R2 read-through, which is also the expensive half (R2 GET + body transfer).
+    const draft = await env.DB.prepare(
+      "SELECT id, published_version, current_version_id, is_public, disabled_at, disabled_reason, deleted_at FROM drafts WHERE id = ?",
+    )
+      .bind(draftId)
+      .first<DraftRow>();
+
+    if (!draft || draft.deleted_at) return textResponse(404, "Not Found");
+    if (!draft.is_public) return textResponse(403, "This draft is not public.");
+    if (draft.disabled_at) {
+      return textResponse(451, `This document has been disabled. ${draft.disabled_reason ?? ""}`.trim());
+    }
+
+    // Only now may we answer from cache. Keyed on the URL alone so conditional headers
+    // don't fragment it.
     const cache = caches.default;
     const cacheKey = new Request(url.toString(), { method: "GET" });
     if (request.method === "GET") {
@@ -124,18 +144,6 @@ export default {
         }
         return hit;
       }
-    }
-
-    const draft = await env.DB.prepare(
-      "SELECT id, published_version, current_version_id, is_public, disabled_at, disabled_reason, deleted_at FROM drafts WHERE id = ?",
-    )
-      .bind(draftId)
-      .first<DraftRow>();
-
-    if (!draft || draft.deleted_at) return textResponse(404, "Not Found");
-    if (!draft.is_public) return textResponse(403, "This draft is not public.");
-    if (draft.disabled_at) {
-      return textResponse(451, `This document has been disabled. ${draft.disabled_reason ?? ""}`.trim());
     }
 
     // Resolve the version.

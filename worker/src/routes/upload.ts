@@ -5,7 +5,7 @@ import { validateHtml, MAX_BYTES } from "../services/html-validator.js";
 import { objectKey, putHtml } from "../services/storage.js";
 import { newDraftId, newId } from "../services/id.js";
 import { sha256Hex } from "../services/crypto.js";
-import { jsonError, clientIp } from "../lib/http.js";
+import { jsonError, clientIp, readJsonObject, badStringField } from "../lib/http.js";
 
 type Vars = { Variables: { auth: AuthContext }; Bindings: Env };
 
@@ -16,15 +16,25 @@ const upload = new Hono<Vars>();
 // Header: Idempotency-Key (optional) — dedupes agent retries.
 upload.post("/", async (c) => {
   const auth = c.get("auth");
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return jsonError(c, 400, "E_BAD_JSON", "Request body must be JSON.");
-  }
+  const parsedBody = await readJsonObject(c);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+
+  const badField = badStringField(c, body, [
+    "html", "draft_id", "project_id", "title", "description", "filename",
+  ]);
+  if (badField) return badField;
 
   const html = typeof body.html === "string" ? body.html : "";
   if (!html) return jsonError(c, 400, "E_NO_HTML", "Field 'html' is required.");
+
+  if (
+    body.metadata !== undefined &&
+    body.metadata !== null &&
+    (typeof body.metadata !== "object" || Array.isArray(body.metadata))
+  ) {
+    return jsonError(c, 400, "E_BAD_FIELD", "Field 'metadata' must be an object.");
+  }
 
   // (1) validate — the single authoritative gate.
   const result = validateHtml(html);

@@ -8,8 +8,8 @@
     "ENVIRONMENT": "production",
     // Public base URL of the CONTENT worker (separate origin). Overwritten after the
     // content worker is first deployed and its workers.dev URL is known.
-    "CONTENT_BASE_URL": "https://webhost-content.tapetide.workers.dev",
-    "DASHBOARD_ORIGIN": "https://webhost-api.tapetide.workers.dev",
+    "CONTENT_BASE_URL": "https://postplan.tapetide.com",
+    "DASHBOARD_ORIGIN": "https://app.postplan.tapetide.com",
     "GOOGLE_OAUTH_ENABLED": "false"
   },
   "d1_databases": [

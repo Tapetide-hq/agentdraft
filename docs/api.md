@@ -1,7 +1,7 @@
 # API Reference
 
-Base URL: `https://webhost-api.<subdomain>.workers.dev`
-Public content is served from `https://webhost-content.<subdomain>.workers.dev`.
+Base URL: `https://api.postplan.tapetide.com`
+Public content is served from `https://postplan.tapetide.com`.
 
 ## Authentication
 

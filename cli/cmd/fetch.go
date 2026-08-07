@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -62,12 +63,41 @@ func resolveFetchURL(target string, version int) string {
 		}
 		return strings.TrimRight(target, "/") + "/raw"
 	}
-	// bare id — derive content host from the API host (api -> content)
-	content := strings.Replace(config.DefaultAPIURL, "webhost-api", "webhost-content", 1)
+	// bare id — derive the content host from the configured API host.
+	// api.postplan.tapetide.com -> postplan.tapetide.com (strip the leading "api." label).
+	// Falls back to the api host itself if the pattern does not match.
+	content := contentHostFrom(configuredAPIURL())
 	if version > 0 {
 		return fmt.Sprintf("%s/d/%s/v/%d/raw", content, target, version)
 	}
 	return fmt.Sprintf("%s/d/%s/raw", content, target)
+}
+
+// configuredAPIURL returns the api_url from ~/.webhost/config.json, falling back to the
+// compiled-in default. Reading config here (rather than using the default directly) is
+// what makes `fetch` work against a self-hosted instance.
+func configuredAPIURL() string {
+	cfg, err := config.Load()
+	if err != nil || cfg.APIURL == "" {
+		return config.DefaultAPIURL
+	}
+	return cfg.APIURL
+}
+
+// contentHostFrom derives the public content origin from the API origin by stripping a
+// leading "api." label (api.postplan.example -> postplan.example). If there is no such
+// label the API origin is returned unchanged, which is the correct behaviour for a
+// single-host deployment.
+func contentHostFrom(apiURL string) string {
+	u, err := url.Parse(apiURL)
+	if err != nil || u.Host == "" {
+		return strings.TrimRight(apiURL, "/")
+	}
+	if strings.HasPrefix(u.Host, "api.") {
+		u.Host = strings.TrimPrefix(u.Host, "api.")
+	}
+	u.Path = ""
+	return strings.TrimRight(u.String(), "/")
 }
 
 func init() {

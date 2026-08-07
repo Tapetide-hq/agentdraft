@@ -4,7 +4,7 @@ import type { Account, ApiKeyRow, AuthContext } from "../types.js";
 import { hashApiKey } from "../services/crypto.js";
 import { newSessionId } from "../services/id.js";
 import { serialize as serializeCookie } from "../lib/cookie.js";
-import { jsonError } from "../lib/http.js";
+import { jsonError, readJsonObject, badStringField } from "../lib/http.js";
 import { SESSION_COOKIE } from "../middleware/auth.js";
 
 const session = new Hono<{ Bindings: Env; Variables: { auth: AuthContext } }>();
@@ -14,12 +14,11 @@ const SESSION_TTL_SEC = 30 * 24 * 3600; // 30 days
 // POST /api/session — exchange a pasted scoped API key for a dashboard session.
 // Body: { api_key }
 session.post("/", async (c) => {
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return jsonError(c, 400, "E_BAD_JSON", "Body must be JSON.");
-  }
+  const parsedBody = await readJsonObject(c);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+  const badField = badStringField(c, body, ["api_key"]);
+  if (badField) return badField;
   const apiKey = typeof body.api_key === "string" ? body.api_key.trim() : "";
   if (!apiKey.startsWith("wh_")) {
     return jsonError(c, 400, "E_BAD_KEY", "Provide a valid wh_ API key.");

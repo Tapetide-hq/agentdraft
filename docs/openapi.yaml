@@ -8,7 +8,7 @@ info:
   license:
     name: MIT
 servers:
-  - url: https://webhost-api.tapetide.workers.dev
+  - url: https://api.postplan.tapetide.com
     description: Reference deployment (API)
 security:
   - bearerAuth: []

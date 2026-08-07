@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DefaultAPIURL = "https://webhost-api.tapetide.workers.dev"
+	DefaultAPIURL = "https://api.postplan.tapetide.com"
 	dirPerm       = 0o700
 	filePerm      = 0o600
 )

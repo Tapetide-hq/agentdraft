@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/Hitesh-Sisara/webhost/main/cli/inst
 
 State lives in `~/.webhost/` (dir `0700`, files `0600`):
 
-- `config.json` — `{ "api_url": "https://webhost-api.tapetide.workers.dev" }`
+- `config.json` — `{ "api_url": "https://api.postplan.tapetide.com" }`
 - `credentials.json` — `{ "api_key": "wh_…", "account_id": "acct_…" }`
 - `drafts.json` — maps local file paths to draft IDs so re-uploads update the same draft
 

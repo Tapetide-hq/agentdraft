@@ -3,7 +3,7 @@ import type { Env } from "../env.js";
 import type { ApiKeyRow, AuthContext } from "../types.js";
 import { newId, newApiKey } from "../services/id.js";
 import { hashApiKey } from "../services/crypto.js";
-import { jsonError } from "../lib/http.js";
+import { jsonError, readJsonObject, badStringField } from "../lib/http.js";
 
 const keys = new Hono<{ Bindings: Env; Variables: { auth: AuthContext } }>();
 
@@ -21,12 +21,11 @@ keys.get("/", async (c) => {
 // POST /api/api-keys — create; returns plaintext ONCE.
 keys.post("/", async (c) => {
   const auth = c.get("auth");
-  let body: Record<string, unknown> = {};
-  try {
-    body = await c.req.json();
-  } catch {
-    /* optional body */
-  }
+  const parsedBody = await readJsonObject(c, { allowEmpty: true });
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.body;
+  const badField = badStringField(c, body, ["name"]);
+  if (badField) return badField;
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "cli";
   const requested = Array.isArray(body.scopes) ? (body.scopes as string[]) : ["upload", "read"];
   const allowed = new Set(["upload", "read", "manage"]);

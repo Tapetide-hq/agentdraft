@@ -10,7 +10,7 @@ versions stay accessible.
 
 ```bash
 webhost upload plan.html --project "migration"
-# → https://webhost-content.<acct>.workers.dev/d/a1b2c3d4e5f6
+# → https://postplan.tapetide.com/d/a1b2c3d4e5f6
 ```
 
 ## Why it's shaped this way
@@ -28,10 +28,18 @@ webhost upload plan.html --project "migration"
   wrapper, no interstitial, no re-serialization.
 - **Every published page is untrusted content.** See [SECURITY.md](./SECURITY.md).
 
+## Reference deployment
+
+| Surface | URL |
+|---|---|
+| Published documents | `https://postplan.tapetide.com/d/:id` |
+| API | `https://api.postplan.tapetide.com` |
+| Dashboard | `https://app.postplan.tapetide.com` |
+
 ## Architecture
 
 ```
-  Go CLI ───HTTPS──▶  webhost-api.<acct>.workers.dev   (API + dashboard, authed)
+  Go CLI ───HTTPS──▶  api.postplan.tapetide.com        (API, authed)
   Dashboard ────────▶      │            │
                            │            │
                       ┌─────▼───┐   ┌────▼──┐
@@ -39,7 +47,7 @@ webhost upload plan.html --project "migration"
                       │metadata │   │ HTML  │
                       └─────▲───┘   └────▲──┘
                            │            │
-  Browser ──────────▶  webhost-content.<acct>.workers.dev  (serve HTML, NO cookies)
+  Browser ──────────▶  postplan.tapetide.com             (serve HTML, NO cookies)
 ```
 
 | Component | Tech | Purpose |
@@ -66,6 +74,25 @@ cd worker && bun install && bun run deploy
 cd ../content-worker && bun install && bun run deploy
 cd ../cli && go build -o webhost .
 ```
+
+## Testing
+
+Unit/conformance suites run per component (`bun run test` in `worker/`,
+`go test ./...` in `cli/`). The adversarial end-to-end suite runs against a real
+deployment:
+
+```bash
+API=https://api.postplan.tapetide.com \
+CONTENT=https://postplan.tapetide.com \
+KEY=wh_your_key ./tests/brutal.sh
+```
+
+174 assertions covering XSS/policy bypass attempts, auth and privilege escalation,
+IDOR, malformed input, injection, size limits, versioning/dedup/idempotency,
+conditional requests on cold *and* warm cache, method hygiene, cache-leak-after-delete,
+and concurrent-upload races. It needs ~70 uploads and the API allows 100/hour per key,
+so use a fresh key per run (the suite fails fast with instructions if the budget is
+already spent).
 
 ## Documentation
 
