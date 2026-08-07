@@ -22,10 +22,18 @@ function hex(buf: ArrayBuffer): string {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Constant-time string comparison for opaque tokens of equal expected length.
-export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
+// Constant-time comparison for secret values.
+//
+// Uses the runtime's crypto.subtle.timingSafeEqual rather than a hand-rolled JS loop:
+// a JS loop is not guaranteed constant-time (the JIT may short-circuit) and an early
+// length check leaks the secret's length. Both inputs are first hashed to a fixed
+// 32-byte digest, which normalises length (so differing-length inputs compare in
+// constant time) and gives timingSafeEqual the equal-length buffers it requires.
+export async function secretEquals(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  return crypto.subtle.timingSafeEqual(da, db);
 }

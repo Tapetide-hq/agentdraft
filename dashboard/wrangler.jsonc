@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "webhost-dashboard",
   "main": ".svelte-kit/cloudflare/_worker.js",
-  "compatibility_date": "2024-12-01",
+  "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": ".svelte-kit/cloudflare", "binding": "ASSETS" },
   // Service binding to the API worker. A Worker cannot fetch a sibling Worker via its
@@ -16,5 +16,5 @@
     "API_BASE_URL": "https://webhost-api.tapetide.workers.dev",
     "CONTENT_BASE_URL": "https://webhost-content.tapetide.workers.dev"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

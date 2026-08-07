@@ -4,10 +4,10 @@
 // D1 + R2. It never authenticates a user and never sets a cookie. Every response is
 // treated as untrusted content (see SECURITY.md): strict CSP, noindex, no-referrer.
 
-interface Env {
-  DB: D1Database;
-  STORAGE: R2Bucket;
-}
+// Bindings come from `wrangler types` (worker-configuration.d.ts, generated from
+// wrangler.jsonc) rather than being hand-written, so a config change that drops or
+// renames a binding becomes a compile error instead of a runtime crash.
+type Env = globalThis.Env;
 
 interface DraftRow {
   id: string;
@@ -139,7 +139,6 @@ export default {
       return textResponse(404, "Content unavailable.");
     }
 
-    const html = await obj.text();
     // Immutable versioned URLs cache hard; the mutable latest URL caches briefly.
     const immutable = explicitVersion != null;
     const cacheControl = immutable
@@ -153,7 +152,10 @@ export default {
       "X-WebHost-Version": String(version.version_number),
     });
 
-    const response = new Response(request.method === "HEAD" ? null : html, {
+    // Stream the R2 body straight through rather than buffering it with .text().
+    // Documents are capped at 2 MiB by validation, but streaming keeps memory flat
+    // regardless and starts the response sooner (Workers has a 128 MB limit).
+    const response = new Response(request.method === "HEAD" ? null : obj.body, {
       status: 200,
       headers,
     });

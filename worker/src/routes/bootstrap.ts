@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../env.js";
 import { newId, newApiKey } from "../services/id.js";
-import { hashApiKey, timingSafeEqual } from "../services/crypto.js";
+import { hashApiKey, secretEquals } from "../services/crypto.js";
 import { jsonError } from "../lib/http.js";
 
 const bootstrap = new Hono<{ Bindings: Env }>();
@@ -17,7 +17,7 @@ bootstrap.post("/", async (c) => {
     return jsonError(c, 503, "E_BOOTSTRAP_DISABLED", "Bootstrap is not configured.");
   }
   const provided = c.req.header("x-bootstrap-secret") ?? "";
-  if (!timingSafeEqual(provided, secret)) {
+  if (!(await secretEquals(provided, secret))) {
     return jsonError(c, 401, "E_BOOTSTRAP_UNAUTHORIZED", "Invalid bootstrap secret.");
   }
 
