@@ -47,6 +47,48 @@ wrangler secret put API_KEY_PEPPER     # a long random string; domain-separates 
 # wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
+## 4b. Google sign-in (optional but recommended)
+
+Google OAuth is **dormant until configured** — every OAuth route returns 503 and the
+dashboard hides the button, so an instance without an IdP still works via API keys.
+
+When it IS configured, minting an API key requires a verified Google identity. That
+matters because an API key is a bearer token that ends up in CI config, dotfiles and
+agent environments: if a leaked key could mint more keys, revoking the leaked one would
+not contain the breach. Listing and *revoking* keys deliberately stay available without
+Google — you must always be able to revoke, even when your IdP is down.
+
+Create the OAuth client (this step requires a human; there is no API for it):
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → new or existing project
+2. **APIs & Services → OAuth consent screen** → External → add your email as a test user
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**
+4. Application type: **Web application**
+5. **Authorized redirect URI** — must match exactly:
+   `https://app.<your-domain>/auth/google/callback`
+6. Copy the Client ID and Client Secret
+
+Then configure the worker:
+
+```bash
+cd worker
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+# flip the flag in wrangler.jsonc: "GOOGLE_OAUTH_ENABLED": "true"
+wrangler deploy
+```
+
+Verify: `curl https://api.<your-domain>/api/config` should report
+`"google_oauth_enabled": true`, and `/auth/google` on the dashboard should redirect to
+Google rather than back to `/login?google=unavailable`.
+
+Implementation notes: Authorization Code flow with PKCE (S256) and a stored, single-use
+`state`; the `id_token` is verified against Google's JWKS for signature, issuer,
+**audience** and expiry, and `email_verified` is required. Accounts link on the immutable
+`sub` claim, never on email — Google emails change, `sub` does not. The audience pin is
+load-bearing: Google signs every project's tokens with the same keys, so a valid
+signature alone proves nothing about which app a token was issued for.
+
 ## 5. Deploy
 
 Deploy the content worker first (the API references its URL), then the API, then the

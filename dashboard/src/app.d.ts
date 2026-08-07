@@ -15,6 +15,7 @@ declare global {
     }
     interface Locals {
       apiKey: string | null;
+      sessionId: string | null;
       apiBase: string;
       contentBase: string;
       apiService: ApiService | null;

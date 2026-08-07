@@ -9,6 +9,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.contentBase =
     env?.CONTENT_BASE_URL ?? "https://agentdraft-content.tapetide.workers.dev";
   event.locals.apiKey = event.cookies.get("ad_key") ?? null;
+  event.locals.sessionId = event.cookies.get("ad_session") ?? null;
   event.locals.apiService = env?.API ?? null;
   return resolve(event);
 };

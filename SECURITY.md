@@ -117,6 +117,25 @@ and `/raw` paths, and asserts no `<script>` reaches a served document.
   scope, so an `upload`/`read` key cannot escalate.
 - Keys are revocable instantly.
 
+## API key minting requires a verified Google identity
+
+When Google OAuth is configured, `POST /api/api-keys` requires a Google-backed session.
+An API key — even a `manage`-scoped one — is a bearer token that lives in CI config,
+dotfiles and agent environments. If a leaked key could mint further keys, revoking the
+leaked one would not contain the breach; the attacker would already hold durable access.
+Requiring a Google session means escalation needs the human's Google account, which this
+service never holds and therefore cannot leak.
+
+Deliberate limits of this control, stated plainly rather than implied away:
+
+- **It is disabled when OAuth is not configured.** Otherwise a self-hosted instance with
+  no IdP could never mint a key and would be unusable. The gate is only as strong as the
+  deployment's configuration.
+- **Listing and revoking keys are NOT gated.** Revocation must work when your IdP is
+  unavailable — a security control that blocks incident response is a liability.
+- The bootstrap key predates any identity and is minted by the `BOOTSTRAP_SECRET` alone.
+  Treat it as a break-glass credential and revoke it once a Google-backed key exists.
+
 ## Rate limiting
 
 KV-backed fixed-window counters, keyed on the API key (or IP for unauthenticated reads):

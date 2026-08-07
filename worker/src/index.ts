@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./env.js";
 import type { AuthContext } from "./types.js";
-import { requireAuth, requireScope } from "./middleware/auth.js";
+import { requireAuth, requireScope, requireGoogleIdentity } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/ratelimit.js";
 import { jsonError } from "./lib/http.js";
 import uploadRoute from "./routes/upload.js";
@@ -11,6 +11,7 @@ import sessionRoute from "./routes/session.js";
 import keysRoute from "./routes/keys.js";
 import projectsRoute from "./routes/projects.js";
 import draftsRoute from "./routes/drafts.js";
+import googleRoute from "./routes/google.js";
 
 type App = { Bindings: Env; Variables: { auth: AuthContext } };
 
@@ -53,6 +54,9 @@ app.get("/api/config", (c) =>
 // Bootstrap (secret-guarded, one-time).
 app.route("/api/bootstrap", bootstrapRoute);
 
+// Google OAuth sign-in (dormant unless configured; every route 503s otherwise).
+app.route("/api/auth/google", googleRoute);
+
 // Session exchange (key -> cookie) and logout.
 app.route("/api/session", sessionRoute);
 
@@ -91,6 +95,10 @@ app.route("/api/drafts", draftsRoute);
 // holds a manage key server-side; /api/session remains a valid alternative integration.
 app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
 app.use("/api/api-keys", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
+// Minting a key is the only operation that creates durable NEW access, so it carries an
+// extra gate: a verified Google identity. Listing and revoking deliberately do NOT —
+// you must always be able to revoke a key, including when your IdP is unavailable.
+app.post("/api/api-keys", requireGoogleIdentity());
 app.route("/api/api-keys", keysRoute);
 
 // 404 + error envelopes.

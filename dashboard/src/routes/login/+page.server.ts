@@ -5,7 +5,8 @@ import { apiFetch } from "$lib/server/api";
 // Ask the API whether Google OAuth is configured on this deployment. The button is
 // rendered only when it is genuinely usable — showing a dead sign-in button is worse
 // than not offering it.
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
+  const googleError = url.searchParams.get("google");
   try {
     const res = await apiFetch(
       { apiBase: locals.apiBase, apiKey: null, service: locals.apiService },
@@ -13,12 +14,12 @@ export const load: PageServerLoad = async ({ locals }) => {
     );
     if (res.ok) {
       const cfg = (await res.json()) as { google_oauth_enabled?: boolean };
-      return { googleEnabled: !!cfg.google_oauth_enabled };
+      return { googleEnabled: !!cfg.google_oauth_enabled, googleError };
     }
   } catch {
     /* config is advisory; fall back to key-only sign-in */
   }
-  return { googleEnabled: false };
+  return { googleEnabled: false, googleError };
 };
 
 export const actions: Actions = {

@@ -28,8 +28,18 @@
 {#if data?.googleEnabled}
   <div class="card" style="max-width:30rem">
     <h3>Or continue with Google</h3>
+    <p class="subtle" style="margin:0 0 .9rem;font-size:13px">
+      Creating API keys requires a verified Google identity, so a leaked key cannot mint
+      more keys.
+    </p>
     <a class="btn btn--ghost" href="/auth/google">Sign in with Google</a>
   </div>
+{/if}
+
+{#if data?.googleError}
+  <p class="error" style="max-width:30rem">
+    Google sign-in did not complete ({data.googleError}). Try again, or use an API key.
+  </p>
 {/if}
 
 <p class="subtle" style="font-size:13px">
