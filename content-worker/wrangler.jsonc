@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webhost-content",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-01",
+  // This worker serves UNTRUSTED, attacker-controlled HTML. It lives on its OWN
+  // workers.dev origin (webhost-content.<subdomain>.workers.dev), separate from the
+  // API/dashboard origin, so a CSP bypass in a published page cannot reach a session.
+  // It NEVER sets a cookie and has NO auth bindings beyond read access to D1 + R2.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webhost-db",
+      "database_id": "6c8ca102-ac0b-4294-8f86-fccea354a1e5"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "webhost-html"
+    }
+  ],
+  "placement": { "mode": "smart" },
+  "observability": { "enabled": true }
+}
