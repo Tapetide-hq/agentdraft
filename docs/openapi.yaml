@@ -1,0 +1,179 @@
+openapi: 3.1.0
+info:
+  title: WebHost API
+  version: 0.1.0
+  description: >-
+    Publish static HTML and get a stable public URL. Uploaded HTML is validated
+    server-side and served byte-for-byte from a separate content origin.
+  license:
+    name: MIT
+servers:
+  - url: https://webhost-api.tapetide.workers.dev
+    description: Reference deployment (API)
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: wh_ token
+  schemas:
+    Error:
+      type: object
+      properties:
+        ok: { type: boolean, enum: [false] }
+        error:
+          type: object
+          properties:
+            code: { type: string, example: E_UNAUTHENTICATED }
+            message: { type: string }
+    UploadRequest:
+      type: object
+      required: [html]
+      properties:
+        html: { type: string }
+        filename: { type: string }
+        project_id: { type: string }
+        draft_id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        metadata:
+          type: object
+          properties:
+            git_branch: { type: string }
+            git_commit_sha: { type: string }
+            git_dirty: { type: boolean }
+            cli_version: { type: string }
+    UploadResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        draft_id: { type: string }
+        version_number: { type: integer }
+        content_hash: { type: string }
+        public_url: { type: string, format: uri }
+        raw_url: { type: string, format: uri }
+        version_url: { type: string, format: uri }
+        title: { type: string }
+        idempotent_replay: { type: boolean }
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              message: { type: string }
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200": { description: OK }
+  /api/config:
+    get:
+      summary: Public configuration
+      security: []
+      responses:
+        "200": { description: OK }
+  /api/bootstrap:
+    post:
+      summary: One-time owner + first key creation (secret-guarded)
+      security: []
+      parameters:
+        - in: header
+          name: X-Bootstrap-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string }
+      responses:
+        "201": { description: Created; returns the plaintext key once }
+        "401": { description: Invalid bootstrap secret }
+        "409": { description: Already bootstrapped }
+  /api/me:
+    get:
+      summary: Current account
+      responses:
+        "200": { description: OK }
+        "401":
+          description: Unauthenticated
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  /api/upload:
+    post:
+      summary: Upload HTML and create/update a draft
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadRequest" }
+      responses:
+        "201":
+          description: Created
+          content: { application/json: { schema: { $ref: "#/components/schemas/UploadResponse" } } }
+        "401": { description: Unauthenticated }
+        "403": { description: Missing upload scope }
+        "422": { description: HTML rejected by validation policy }
+        "429": { description: Rate limited }
+  /api/api-keys:
+    get:
+      summary: List API keys (manage scope)
+      responses: { "200": { description: OK } }
+    post:
+      summary: Create an API key (manage scope); returns plaintext once
+      responses: { "201": { description: Created } }
+  /api/api-keys/{id}:
+    delete:
+      summary: Revoke an API key (manage scope)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: Revoked } }
+  /api/projects:
+    get:
+      summary: List projects
+      responses: { "200": { description: OK } }
+    post:
+      summary: Create a project
+      responses: { "201": { description: Created } }
+  /api/projects/{id}:
+    patch:
+      summary: Update a project
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK } }
+    delete:
+      summary: Archive a project
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { "200": { description: Archived } }
+  /api/drafts:
+    get:
+      summary: List drafts
+      parameters:
+        - { in: query, name: project, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer } }
+      responses: { "200": { description: OK } }
+  /api/drafts/{id}:
+    get:
+      summary: Draft metadata + version list
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+    delete:
+      summary: Soft-delete a draft
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { "200": { description: Deleted } }

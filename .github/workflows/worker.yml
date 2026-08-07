@@ -1,0 +1,28 @@
+name: Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", "content-worker/**", "shared/**", ".github/workflows/worker.yml"]
+  pull_request:
+    paths: ["worker/**", "content-worker/**", "shared/**", ".github/workflows/worker.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: API worker — install, typecheck, test
+        working-directory: worker
+        run: |
+          bun install
+          bunx tsc --noEmit
+          bun run test
+      - name: Content worker — install, typecheck
+        working-directory: content-worker
+        run: |
+          bun install
+          bunx tsc --noEmit

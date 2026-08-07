@@ -1,0 +1,23 @@
+name: Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths: ["dashboard/**", ".github/workflows/dashboard.yml"]
+  pull_request:
+    paths: ["dashboard/**", ".github/workflows/dashboard.yml"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run check
+      - run: bun run build
