@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -73,8 +74,16 @@ var uploadCmd = &cobra.Command{
 		}
 
 		gm := git.Collect(filepath.Dir(absPath))
+		// A .md file is sent as `markdown` so the server renders it for browser
+		// reading while keeping the exact source retrievable at /raw. The CLI does not
+		// render anything itself — the server is the single authority.
+		format := ""
+		if isMarkdownFile(absPath) {
+			format = "md"
+		}
 		req := api.UploadRequest{
 			HTML:        string(html),
+			Format:      format,
 			Filename:    filepath.Base(absPath),
 			ProjectID:   projectID,
 			DraftID:     draftID,
@@ -122,6 +131,15 @@ func resolveProject(client *api.Client, name string) (string, error) {
 	}
 	// create it
 	return client.CreateProject(name)
+}
+
+// isMarkdownFile reports whether a path has a Markdown extension.
+func isMarkdownFile(p string) bool {
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".md", ".markdown", ".mdown", ".mkd":
+		return true
+	}
+	return false
 }
 
 func isID(s, prefix string) bool {

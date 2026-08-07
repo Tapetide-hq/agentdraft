@@ -28,9 +28,15 @@ Returns the current account, auth method, and scopes.
 
 ### `POST /api/upload`  *(scope: upload)*
 Header (optional): `Idempotency-Key: <k>`.
+Send **either** `html` **or** `markdown`. A `.md`/`.markdown` filename (or
+`"format": "md"`) is also treated as Markdown, so a CLI can just send file bytes and let
+the server decide.
+
 ```json
 {
   "html": "<!DOCTYPE html>…",
+  "markdown": "# Q3 Plan\n\nBody…",
+  "format": "md",
   "filename": "plan.html",
   "project_id": "proj_…",     // optional
   "draft_id": "abc123",        // optional; update an existing draft
@@ -55,6 +61,19 @@ Header (optional): `Idempotency-Key: <k>`.
   "content_deduplicated": false
 }
 ```
+### Markdown
+
+A Markdown upload is rendered **once at upload time** into a self-contained HTML
+document. `GET /d/:id` serves that rendered document (so a human opens the URL and reads
+formatted prose); `GET /d/:id/raw` serves the **exact Markdown source bytes** as
+`text/markdown`, preserving the byte-for-byte guarantee. `X-AgentDraft-Format` reports
+`md` or `html`, and the upload response includes `source_format`.
+
+Rendering is **not** sanitising. Markdown permits raw HTML passthrough, so the rendered
+output is run through the *same* authoritative validator as a direct HTML upload — a
+`.md` file containing `<script>` is rejected with 422 `E_SCRIPT`. Markdown source is
+capped at 1 MiB.
+
 `content_deduplicated: true` means these exact bytes already existed for this draft, so
 no new R2 object was written. A new version row is still created (history and its git
 metadata stay accurate).

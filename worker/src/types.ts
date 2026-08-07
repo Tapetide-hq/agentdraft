@@ -74,6 +74,7 @@ export interface DraftVersion {
   git_branch: string | null;
   git_commit_sha: string | null;
   git_dirty: number | null;
+  source_format: string | null;
   created_at: string;
 }
 

@@ -24,6 +24,14 @@ interface VersionRow {
   version_number: number;
   object_key: string;
   content_hash: string;
+  source_format: string | null;
+}
+
+// Companion key holding the rendered HTML for a Markdown version. Mirrors
+// renderedKey() in the API worker — kept in sync deliberately by convention because the
+// two workers do not share a module.
+function renderedKeyFor(sourceKey: string): string {
+  return sourceKey.replace(/\.html$/, "") + ".rendered.html";
 }
 
 // Defense-in-depth CSP. script-src 'none' means even if validation somehow let a
@@ -90,7 +98,7 @@ export default {
     //   /d/:id/raw        latest (alias)
     //   /d/:id/v/:n       specific version
     //   /d/:id/v/:n/raw   specific version (alias)
-    const m = url.pathname.match(/^\/d\/([a-z0-9]{6,32})(?:\/v\/(\d+))?(?:\/raw)?\/?$/);
+    const m = url.pathname.match(/^\/d\/([a-z0-9]{6,32})(?:\/v\/(\d+))?(\/raw)?\/?$/);
     if (url.pathname === "/" ) {
       return new Response(
         JSON.stringify({ ok: true, service: "agentdraft-content", note: "Serves published HTML at /d/:id" }),
@@ -104,6 +112,10 @@ export default {
 
     const draftId = m[1];
     const explicitVersion = m[2] ? parseInt(m[2], 10) : null;
+    // /raw always yields the EXACT uploaded bytes. For HTML that is the same document
+    // served at /d/:id; for Markdown it is the Markdown source, which is what makes the
+    // byte-for-byte guarantee hold for md uploads too.
+    const wantRaw = !!m[3];
 
     const ifNoneMatch = request.headers.get("if-none-match");
 
@@ -150,19 +162,19 @@ export default {
     let version: VersionRow | null = null;
     if (explicitVersion != null) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash FROM draft_versions WHERE draft_id = ? AND version_number = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE draft_id = ? AND version_number = ?",
       )
         .bind(draftId, explicitVersion)
         .first<VersionRow>();
     } else if (draft.current_version_id) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash FROM draft_versions WHERE id = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE id = ?",
       )
         .bind(draft.current_version_id)
         .first<VersionRow>();
     } else if (draft.published_version != null) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash FROM draft_versions WHERE draft_id = ? AND version_number = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE draft_id = ? AND version_number = ?",
       )
         .bind(draftId, draft.published_version)
         .first<VersionRow>();
@@ -179,29 +191,53 @@ export default {
     // stored objects are immutable, so it is a strong validator (no W/ prefix).
     const etag = `"${version.content_hash}"`;
 
+    const isMd = (version.source_format ?? "html") === "md";
+
+    // Which R2 object to serve:
+    //   /raw            -> ALWAYS the exact uploaded bytes (source)
+    //   /d/:id (md)     -> the pre-rendered HTML companion object, so a human opening
+    //                      the URL reads a formatted document instead of raw asterisks
+    //   /d/:id (html)   -> the source, which IS the document
+    const serveRendered = isMd && !wantRaw;
+    const key = serveRendered ? renderedKeyFor(version.object_key) : version.object_key;
+
+    // Markdown source served at /raw is text/markdown, not text/html — sending it as
+    // HTML would make the browser try to parse asterisks as markup, and it would also
+    // mean untrusted text is interpreted in an HTML context.
+    const contentType =
+      wantRaw && isMd ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8";
+
+    // The ETag is the hash of the SOURCE bytes. Rendered and raw representations of the
+    // same version therefore share a hash, so they must not share a cache entry or a
+    // validator — the URL differs (…/raw), so the Cache API key already differs, and we
+    // vary the tag by representation to keep conditional requests correct.
+    const repEtag = serveRendered ? `"${version.content_hash}-r"` : etag;
+
     const headers = securityHeaders({
+      "Content-Type": contentType,
       "Cache-Control": cacheControl,
-      ETag: etag,
+      ETag: repEtag,
       "X-AgentDraft-Draft-Id": draftId,
       "X-AgentDraft-Version": String(version.version_number),
+      "X-AgentDraft-Format": isMd ? "md" : "html",
     });
 
     // Honour conditional requests BEFORE touching R2. Emitting an ETag without
     // handling If-None-Match means every revalidation pays a full R2 read plus the
     // whole body over the wire. A 304 costs one D1 lookup and zero R2 Class B ops.
-    if (ifNoneMatchMatches(ifNoneMatch, etag)) {
+    if (ifNoneMatchMatches(ifNoneMatch, repEtag)) {
       return new Response(null, { status: 304, headers });
     }
 
     // HEAD needs metadata only — use R2 head() so we never open a body we discard.
     if (request.method === "HEAD") {
-      const meta = await env.STORAGE.head(version.object_key);
+      const meta = await env.STORAGE.head(key);
       if (!meta) return textResponse(404, "Content unavailable.");
       headers["Content-Length"] = String(meta.size);
       return new Response(null, { status: 200, headers });
     }
 
-    const obj = await env.STORAGE.get(version.object_key);
+    const obj = await env.STORAGE.get(key);
     if (!obj) {
       // D1 row without an R2 object — should be impossible given R2-first ordering.
       return textResponse(404, "Content unavailable.");
