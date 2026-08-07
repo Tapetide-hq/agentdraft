@@ -1,14 +1,13 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { data } = $props();
 </script>
 
-<svelte:head>
-  <title>agentdraft — review URLs for agent-generated plans</title>
-  <meta
-    name="description"
-    content="Publish HTML and Markdown plans from AI coding agents to stable, versioned review URLs. One place for every agent's output, wherever it runs."
-  />
-</svelte:head>
+<Seo
+  title="agentdraft — publish AI agent plans to stable review URLs (HTML + Markdown)"
+  description="Publish HTML and Markdown plans from AI coding agents to stable, versioned review URLs. One command from any machine — local, remote, or CI. Open source, self-hostable on Cloudflare."
+  path="/"
+/>
 
 <!-- Accent lands on the payoff word only. Scarcity is the whole system. -->
 <h1>

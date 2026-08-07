@@ -1,8 +1,9 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { data, form } = $props();
 </script>
 
-<svelte:head><title>Projects — agentdraft</title></svelte:head>
+<Seo title="Projects — agentdraft" description="Group drafts by repo, service, or agent fleet." path="/projects" noindex />
 
 <h1>PROJECTS<span class="accent">.</span></h1>
 <p class="subtle">Group drafts by repo, service, or agent fleet.</p>

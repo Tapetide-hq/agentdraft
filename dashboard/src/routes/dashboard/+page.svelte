@@ -1,8 +1,9 @@
 <script lang="ts">
+  import Seo from "$lib/Seo.svelte";
   let { data } = $props();
 </script>
 
-<svelte:head><title>Drafts — agentdraft</title></svelte:head>
+<Seo title="Drafts — agentdraft" description="Your published agent drafts." path="/dashboard" noindex />
 
 <h1>DRAFTS<span class="accent">.</span></h1>
 <p class="subtle">Signed in as {data.accountName}.</p>
