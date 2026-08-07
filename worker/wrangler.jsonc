@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webhost-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ENVIRONMENT": "production",
+    // Public base URL of the CONTENT worker (separate origin). Overwritten after the
+    // content worker is first deployed and its workers.dev URL is known.
+    "CONTENT_BASE_URL": "https://webhost-content.tapetide.workers.dev",
+    "DASHBOARD_ORIGIN": "https://webhost-api.tapetide.workers.dev",
+    "GOOGLE_OAUTH_ENABLED": "false"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webhost-db",
+      "database_id": "6c8ca102-ac0b-4294-8f86-fccea354a1e5",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "webhost-html"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "RATELIMIT",
+      "id": "24362ce9d8584a209ebc781d6dc4af42"
+    }
+  ],
+  "placement": { "mode": "smart" },
+  "observability": { "enabled": true }
+}
