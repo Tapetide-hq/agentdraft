@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import type { Env } from "../env.js";
 import type { AuthContext, Draft, DraftVersion } from "../types.js";
 import { validateHtml, MAX_BYTES } from "../services/html-validator.js";
-import { objectKey, putHtml } from "../services/storage.js";
+import { renderMarkdown, isMarkdownUpload, MAX_MD_BYTES } from "../services/markdown.js";
+import { objectKey, renderedKey, putHtml } from "../services/storage.js";
 import { newDraftId, newId } from "../services/id.js";
 import { sha256Hex } from "../services/crypto.js";
 import { jsonError, clientIp, readJsonObject, badStringField } from "../lib/http.js";
@@ -21,12 +22,9 @@ upload.post("/", async (c) => {
   const body = parsedBody.body;
 
   const badField = badStringField(c, body, [
-    "html", "draft_id", "project_id", "title", "description", "filename",
+    "html", "markdown", "format", "draft_id", "project_id", "title", "description", "filename",
   ]);
   if (badField) return badField;
-
-  const html = typeof body.html === "string" ? body.html : "";
-  if (!html) return jsonError(c, 400, "E_NO_HTML", "Field 'html' is required.");
 
   if (
     body.metadata !== undefined &&
@@ -36,27 +34,91 @@ upload.post("/", async (c) => {
     return jsonError(c, 400, "E_BAD_FIELD", "Field 'metadata' must be an object.");
   }
 
+  // Accept EITHER `html` or `markdown`. `markdown` may also arrive in `html` when the
+  // caller sets format:"md" or uploads a .md filename — the CLI just sends file bytes
+  // and lets the server decide, so we must handle both shapes.
+  const rawHtmlField = typeof body.html === "string" ? body.html : "";
+  const rawMdField = typeof body.markdown === "string" ? body.markdown : "";
+  const treatAsMarkdown =
+    rawMdField.length > 0 || isMarkdownUpload(body.format, body.filename);
+
+  const source = rawMdField || rawHtmlField;
+  if (!source) {
+    return jsonError(c, 400, "E_NO_CONTENT", "Field 'html' or 'markdown' is required.");
+  }
+
+  // `source` is what we STORE (byte-for-byte, served at /raw). `html` is what we
+  // VALIDATE and what the browser gets at /d/:id. For HTML uploads they are identical.
+  let html: string;
+  let sourceFormat: "html" | "md";
+  let renderedTitle: string | null = null;
+
+  if (treatAsMarkdown) {
+    sourceFormat = "md";
+    const mdBytes = new TextEncoder().encode(source).length;
+    if (mdBytes > MAX_MD_BYTES) {
+      return c.json(
+        {
+          ok: false,
+          error: { code: "E_VALIDATION", message: "Markdown source rejected." },
+          errors: [
+            {
+              code: "E_TOO_LARGE",
+              message: `Markdown is ${mdBytes} bytes; limit is ${MAX_MD_BYTES}.`,
+            },
+          ],
+          warnings: [],
+        },
+        422,
+      );
+    }
+    const rendered = renderMarkdown(
+      source,
+      typeof body.title === "string" ? body.title : null,
+    );
+    html = rendered.html;
+    renderedTitle = rendered.title;
+  } else {
+    sourceFormat = "html";
+    html = source;
+  }
+
   // (1) validate — the single authoritative gate.
+  //
+  // For Markdown this validates the RENDERED output, not the source. Markdown allows
+  // raw HTML passthrough, so a .md file containing <script> produces a real script tag.
+  // Rendering is NOT sanitising: the validator is what decides, exactly as for a direct
+  // HTML upload.
   const result = validateHtml(html);
   if (!result.ok) {
     return c.json(
       {
         ok: false,
-        error: { code: "E_VALIDATION", message: "HTML rejected by validation policy." },
+        error: {
+          code: "E_VALIDATION",
+          message:
+            sourceFormat === "md"
+              ? "Rendered Markdown rejected by validation policy (raw HTML in the source?)."
+              : "HTML rejected by validation policy.",
+        },
         errors: result.errors,
         warnings: result.warnings,
+        source_format: sourceFormat,
       },
       422,
     );
   }
 
-  const bytes = new TextEncoder().encode(html);
-  const contentHash = await sha256Hex(html);
+  // Hash and size describe the STORED bytes (the source), which is what /raw serves
+  // and what dedup must key on — hashing the rendered form would make a source edit
+  // that renders identically look like a duplicate.
+  const bytes = new TextEncoder().encode(source);
+  const contentHash = await sha256Hex(source);
   const idempotencyKey = c.req.header("idempotency-key") ?? null;
   const filename = typeof body.filename === "string" ? body.filename : null;
   const description = typeof body.description === "string" ? body.description : null;
   const overrideTitle = typeof body.title === "string" ? body.title : null;
-  const title = overrideTitle ?? result.title ?? "Untitled";
+  const title = overrideTitle ?? renderedTitle ?? result.title ?? "Untitled";
   const meta = (body.metadata ?? {}) as Record<string, unknown>;
 
   // Resolve or create the draft, verifying ownership.
@@ -149,13 +211,28 @@ upload.post("/", async (c) => {
 
   // R2 PUT BEFORE the D1 row. An orphan R2 object is harmless garbage; a D1 row
   // pointing at a missing object is a 500 on a public URL. Never invert this ordering.
+  //
+  // Markdown stores TWO objects: the exact source bytes (served at /raw, preserving the
+  // byte-for-byte guarantee) and the rendered HTML (served at /d/:id so a human can
+  // read it in a browser). Rendering at request time instead would mean a `marked`
+  // upgrade could silently change an already-published document.
   if (!deduped) {
-    await putHtml(c.env, key, html, {
+    await putHtml(c.env, key, source, {
       draft_id: draft.id,
       version_number: String(versionNumber),
       content_hash: contentHash,
+      source_format: sourceFormat,
       uploaded_at: new Date().toISOString(),
     });
+    if (sourceFormat === "md") {
+      await putHtml(c.env, renderedKey(key), html, {
+        draft_id: draft.id,
+        version_number: String(versionNumber),
+        content_hash: contentHash,
+        rendered_from: sourceFormat,
+        uploaded_at: new Date().toISOString(),
+      });
+    }
   }
 
   // (4) D1 batch: insert the version row AND advance published_version via MAX so
@@ -167,8 +244,8 @@ upload.post("/", async (c) => {
       `INSERT INTO draft_versions
         (id, draft_id, version_number, object_key, content_hash, file_size, title,
          original_filename, created_by_key_id, idempotency_key, source_ip, cli_version,
-         git_branch, git_commit_sha, git_dirty)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         git_branch, git_commit_sha, git_dirty, source_format)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       versionId,
       draft.id,
@@ -185,6 +262,7 @@ upload.post("/", async (c) => {
       typeof meta.git_branch === "string" ? meta.git_branch : null,
       typeof meta.git_commit_sha === "string" ? meta.git_commit_sha : null,
       gitDirty,
+      sourceFormat,
     ),
     c.env.DB.prepare(
       `UPDATE drafts
@@ -222,6 +300,7 @@ function makeResponse(
     version_url: `${base}/d/${draftId}/v/${v.version_number}`,
     title: v.title,
     warnings,
+    source_format: v.source_format ?? "html",
     idempotent_replay: idempotentReplay,
     // True when these exact bytes already existed for this draft, so no new R2 object
     // was written. A new version row is still created.

@@ -9,6 +9,7 @@ type UploadMetadata struct {
 
 type UploadRequest struct {
 	HTML        string          `json:"html"`
+	Format      string          `json:"format,omitempty"`
 	Filename    string          `json:"filename,omitempty"`
 	ProjectID   string          `json:"project_id,omitempty"`
 	DraftID     string          `json:"draft_id,omitempty"`
@@ -23,17 +24,18 @@ type ValidationError struct {
 }
 
 type UploadResponse struct {
-	OK             bool              `json:"ok"`
-	DraftID        string            `json:"draft_id"`
-	VersionID      string            `json:"version_id"`
-	VersionNumber  int               `json:"version_number"`
-	ContentHash    string            `json:"content_hash"`
-	PublicURL      string            `json:"public_url"`
-	RawURL         string            `json:"raw_url"`
-	VersionURL     string            `json:"version_url"`
-	Title          string            `json:"title"`
-	Warnings       []ValidationError `json:"warnings"`
-	IdempotentReplay bool            `json:"idempotent_replay"`
+	OK               bool              `json:"ok"`
+	DraftID          string            `json:"draft_id"`
+	VersionID        string            `json:"version_id"`
+	VersionNumber    int               `json:"version_number"`
+	ContentHash      string            `json:"content_hash"`
+	PublicURL        string            `json:"public_url"`
+	RawURL           string            `json:"raw_url"`
+	VersionURL       string            `json:"version_url"`
+	Title            string            `json:"title"`
+	SourceFormat     string            `json:"source_format"`
+	Warnings         []ValidationError `json:"warnings"`
+	IdempotentReplay bool              `json:"idempotent_replay"`
 }
 
 type Account struct {

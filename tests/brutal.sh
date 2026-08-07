@@ -363,6 +363,98 @@ assert_eq "idempotent replay same version" "$n1" "$n2"
 assert_eq "idempotent_replay flag true"    true  "$rep"
 
 # ------------------------------------------------- conditional requests / cache
+sect "11b. Markdown support (rendered at /d/:id, byte-exact source at /raw)"
+# md_upload <markdown> [filename] -> "HTTPCODE<TAB>BODY"
+md_upload() {
+  local body
+  body=$(python3 -c "
+import json,sys
+o={'markdown':sys.argv[1]}
+if len(sys.argv)>2 and sys.argv[2]: o['filename']=sys.argv[2]
+print(json.dumps(o))" "$1" "${2:-}")
+  upload_raw "$body"
+}
+MD_SRC='# Brutal MD
+
+Body with **bold**, `code`, and a [link](https://example.com).
+
+| a | b |
+|---|---|
+| 1 | 2 |
+
+- [x] done
+- [ ] open
+'
+r=$(md_upload "$MD_SRC" "brutal.md")
+hc="${r%%$'\t'*}"; bd="${r#*$'\t'}"
+assert_eq "md upload accepted" 201 "$hc"
+MD_ID=$(printf '%s' "$bd" | jqf draft_id)
+assert_eq "response reports source_format=md" "md" "$(printf '%s' "$bd" | jqf source_format)"
+assert_eq "title extracted from H1" "Brutal MD" "$(printf '%s' "$bd" | jqf title)"
+
+if [ -n "$MD_ID" ]; then
+  # /d/:id must be RENDERED html a human can read
+  curl -s "$CONTENT/d/$MD_ID" -o /tmp/_md_rendered.html
+  assert_contains "rendered output has <h1>"    "<h1"       "$(cat /tmp/_md_rendered.html)"
+  assert_contains "rendered output has <table>" "<table>"   "$(cat /tmp/_md_rendered.html)"
+  assert_contains "rendered output has <strong>" "<strong>" "$(cat /tmp/_md_rendered.html)"
+  assert_eq "rendered content-type is html" "text/html; charset=utf-8" \
+    "$(curl -sI "$CONTENT/d/$MD_ID" | tr -d '\r' | awk 'tolower($1)=="content-type:"{$1="";sub(/^ /,"");print}')"
+  # GFM task lists must NOT emit <input> — it is a form control the policy blocks, so
+  # the renderer substitutes inert ballot glyphs. Regression guard for a real defect.
+  if grep -qi '<input' /tmp/_md_rendered.html; then
+    bad "no <input> in rendered md" "found <input> (form control)"
+  else ok "no <input> in rendered md"; fi
+  assert_contains "task glyph rendered" "task-box" "$(cat /tmp/_md_rendered.html)"
+
+  # /raw must be the EXACT markdown source — the byte-for-byte promise for md
+  printf '%s' "$MD_SRC" > /tmp/_md_src.md
+  curl -s "$CONTENT/d/$MD_ID/raw" -o /tmp/_md_raw.md
+  if cmp -s /tmp/_md_src.md /tmp/_md_raw.md; then ok "md /raw is byte-for-byte source"; else bad "md /raw byte-for-byte" "differs"; fi
+  assert_eq "raw content-type is markdown" "text/markdown; charset=utf-8" \
+    "$(curl -sI "$CONTENT/d/$MD_ID/raw" | tr -d '\r' | awk 'tolower($1)=="content-type:"{$1="";sub(/^ /,"");print}')"
+  assert_contains "format header present" "md" \
+    "$(curl -sI "$CONTENT/d/$MD_ID" | tr -d '\r' | tr 'A-Z' 'a-z' | grep x-agentdraft-format)"
+fi
+
+# Markdown permits raw HTML passthrough, so rendering must NOT be treated as
+# sanitising: hostile md has to be rejected by the SAME validator.
+for entry in \
+  'md script|# T
+
+<script>alert(1)</script>
+' \
+  'md onerror|# T
+
+<img src=x onerror="alert(1)">
+' \
+  'md iframe|# T
+
+<iframe src="https://evil.example"></iframe>
+' \
+  'md js link|# T
+
+<a href="javascript:alert(1)">x</a>
+' \
+; do
+  n="${entry%%|*}"; h="${entry#*|}"
+  r=$(md_upload "$h" "evil.md"); assert_eq "reject: $n" 422 "${r%%$'\t'*}"
+done
+
+# format inferred from the FILENAME alone (agents send bytes in `html` + a .md name)
+r=$(upload_raw "$(python3 -c "
+import json;print(json.dumps({'html':'# Inferred\n\nBody.\n','filename':'inferred.md'}))")")
+assert_eq "md inferred from .md filename" "md" "$(printf '%s' "${r#*$'\t'}" | jqf source_format)"
+
+# HTML uploads must be completely unaffected by md support
+r=$(upload_html '<!DOCTYPE html><html><head><title>StillHTML</title></head><body><h1>h</h1></body></html>')
+HID=$(printf '%s' "${r#*$'\t'}" | jqf draft_id)
+assert_eq "html upload still source_format=html" "html" "$(printf '%s' "${r#*$'\t'}" | jqf source_format)"
+if [ -n "$HID" ]; then
+  curl -s "$CONTENT/d/$HID" -o /tmp/_h_a.html; curl -s "$CONTENT/d/$HID/raw" -o /tmp/_h_b.html
+  if cmp -s /tmp/_h_a.html /tmp/_h_b.html; then ok "html: /d and /raw identical"; else bad "html /d vs /raw" "differ"; fi
+fi
+
 sect "12. Conditional requests (cold AND warm cache)"
 r=$(upload_html '<!DOCTYPE html><html><head><title>Cond</title></head><body>conditional</body></html>')
 CD=$(printf '%s' "${r#*$'\t'}" | jqf draft_id)

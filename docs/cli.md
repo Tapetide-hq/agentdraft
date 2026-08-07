@@ -33,7 +33,8 @@ agentdraft auth logout         Remove stored credentials
 Prints the current account, auth method, and scopes.
 
 ### `agentdraft upload <file>`
-Upload an HTML file. Creates a new draft, or updates the mapped draft if this file was
+Upload an HTML **or Markdown** file. A `.md` file is rendered server-side for browser
+reading, with the exact source retrievable at `/raw`. Creates a new draft, or updates the mapped draft if this file was
 uploaded before.
 ```
 --project <name|id>    Assign to a project (created if a new name)
