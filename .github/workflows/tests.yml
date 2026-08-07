@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths: ["tests/**", ".github/workflows/tests.yml"]
+  pull_request:
+    paths: ["tests/**", ".github/workflows/tests.yml"]
+
+# The adversarial suite in tests/brutal.sh runs against a LIVE deployment and needs a
+# real API key, so it cannot execute in CI. What CI can and must do is prove the script
+# is not broken — a syntax error or a shellcheck fault in the suite would otherwise only
+# surface the next time someone runs it manually, which is exactly when you need it.
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash syntax check
+        run: bash -n tests/brutal.sh
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          # SC2086 (word splitting) and SC2181 are pervasive-by-design in this script's
+          # curl/printf style; everything else must be clean.
+          shellcheck --severity=warning --exclude=SC2086,SC2181 tests/brutal.sh
+
+      - name: assert the suite still guards its critical regressions
+        # These greps are a tripwire: if someone deletes a hard-won regression test, CI
+        # fails instead of silently losing the coverage. Each corresponds to a defect
+        # that actually shipped and was caught by this suite.
+        run: |
+          set -e
+          check() {
+            if grep -q "$1" tests/brutal.sh; then
+              echo "  ok   $2"
+            else
+              echo "  MISSING GUARD: $2" >&2; exit 1
+            fi
+          }
+          check "no CDN script injected"        "browser-UA CDN HTML injection (byte-for-byte)"
+          check "no cache leak"                 "cached content readable after soft-delete"
+          check "bare null body"                "null JSON body returned 500"
+          check "numeric draft_id"              "wrong-typed field silently ignored"
+          check "for phase in cold warm"        "conditional requests on WARM cache"
+          check "no duplicate version numbers"  "concurrent-upload version race"
+          check "cannot MINT keys"              "privilege escalation via upload key"
+          echo "all regression guards present"
