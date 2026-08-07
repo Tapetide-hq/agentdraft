@@ -4,14 +4,14 @@
 
 <h1>Sign in</h1>
 <p class="muted">
-  WebHost v1 is invite-only. Paste an API key created by the service owner. The key is
+  AgentDraft v1 is invite-only. Paste an API key created by the service owner. The key is
   stored in an httpOnly cookie on this origin and is never exposed to browser scripts.
 </p>
 
 <div class="card" style="max-width:480px">
   <form method="POST">
     <label for="api_key">API key</label>
-    <input id="api_key" name="api_key" type="password" placeholder="wh_..." autocomplete="off" required />
+    <input id="api_key" name="api_key" type="password" placeholder="ad_..." autocomplete="off" required />
     {#if form?.message}
       <p class="error">{form.message}</p>
     {/if}

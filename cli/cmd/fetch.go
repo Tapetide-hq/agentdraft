@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/api"
-	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/api"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
 var (
@@ -73,7 +73,7 @@ func resolveFetchURL(target string, version int) string {
 	return fmt.Sprintf("%s/d/%s/raw", content, target)
 }
 
-// configuredAPIURL returns the api_url from ~/.webhost/config.json, falling back to the
+// configuredAPIURL returns the api_url from ~/.agentdraft/config.json, falling back to the
 // compiled-in default. Reading config here (rather than using the default directly) is
 // what makes `fetch` work against a self-hosted instance.
 func configuredAPIURL() string {

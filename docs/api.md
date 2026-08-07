@@ -5,7 +5,7 @@ Public content is served from `https://postplan.tapetide.com`.
 
 ## Authentication
 
-Bearer API key: `Authorization: Bearer wh_…`. Keys are scoped (`upload`, `read`,
+Bearer API key: `Authorization: Bearer ad_…`. Keys are scoped (`upload`, `read`,
 `manage`). Serving endpoints (`/d/*`) require no auth.
 
 All error responses share one envelope:
@@ -46,7 +46,7 @@ Header (optional): `Idempotency-Key: <k>`.
   "draft_id": "abc123",
   "version_number": 3,
   "content_hash": "…",
-  "public_url": "https://webhost-content.<sub>.workers.dev/d/abc123",
+  "public_url": "https://agentdraft-content.<sub>.workers.dev/d/abc123",
   "raw_url": ".../d/abc123/raw",
   "version_url": ".../d/abc123/v/3",
   "title": "…",
@@ -90,7 +90,7 @@ GET /d/:id/v/:n       Specific version (immutable, cached 1y)
 GET /d/:id/v/:n/raw   Alias
 ```
 Response headers include a strict CSP, `X-Robots-Tag: noindex`,
-`Cross-Origin-Resource-Policy`, `X-WebHost-Draft-Id`, `X-WebHost-Version`, and an `ETag`
+`Cross-Origin-Resource-Policy`, `X-AgentDraft-Draft-Id`, `X-AgentDraft-Version`, and an `ETag`
 of the content hash. Disabled drafts return 451; private drafts 403; missing 404.
 
 **Conditional requests** are supported: send `If-None-Match: <etag>` to get a `304 Not

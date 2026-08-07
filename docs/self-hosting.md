@@ -1,6 +1,6 @@
-# Self-Hosting WebHost
+# Self-Hosting AgentDraft
 
-WebHost runs entirely on Cloudflare's free tier.
+AgentDraft runs entirely on Cloudflare's free tier.
 
 ## Prerequisites
 
@@ -11,12 +11,12 @@ WebHost runs entirely on Cloudflare's free tier.
 ## 1. Clone and create resources
 
 ```bash
-git clone https://github.com/Tapetide-hq/webhost.git
-cd webhost
+git clone https://github.com/Tapetide-hq/agentdraft.git
+cd agentdraft
 
-wrangler d1 create webhost-db          # note the database_id
-wrangler r2 bucket create webhost-html
-wrangler kv namespace create webhost-ratelimit   # note the id
+wrangler d1 create agentdraft-db          # note the database_id
+wrangler r2 bucket create agentdraft-html
+wrangler kv namespace create agentdraft-ratelimit   # note the id
 ```
 
 ## 2. Configure
@@ -33,7 +33,7 @@ Set the public URLs to your own `*.workers.dev` subdomain (or custom domain) in 
 
 ```bash
 cd worker
-wrangler d1 migrations apply webhost-db --remote
+wrangler d1 migrations apply agentdraft-db --remote
 ```
 
 ## 4. Set secrets (API worker)
@@ -61,7 +61,7 @@ cd ../dashboard     && bun install && bun run deploy
 ## 6. Bootstrap the first key
 
 ```bash
-curl -X POST https://webhost-api.<sub>.workers.dev/api/bootstrap \
+curl -X POST https://agentdraft-api.<sub>.workers.dev/api/bootstrap \
   -H "x-bootstrap-secret: <your BOOTSTRAP_SECRET>" \
   -H "content-type: application/json" \
   -d '{"name":"Owner","email":"you@example.com"}'
@@ -71,18 +71,18 @@ curl -X POST https://webhost-api.<sub>.workers.dev/api/bootstrap \
 ## 7. Use it
 
 ```bash
-cd cli && go build -o webhost .
-./webhost config --api-url https://webhost-api.<sub>.workers.dev
-./webhost auth set wh_...
+cd cli && go build -o agentdraft .
+./agentdraft config --api-url https://agentdraft-api.<sub>.workers.dev
+./agentdraft auth set ad_...
 echo '<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Hello</h1></body></html>' > test.html
-./webhost upload test.html
+./agentdraft upload test.html
 ```
 
 ## Custom domains
 
 Add routes in the Cloudflare dashboard (Workers → your worker → Triggers → Custom
-Domains) for `api.example.com` → `webhost-api`, `example.com` → `webhost-content`, and
-`app.example.com` → `webhost-dashboard`. Then update the `vars` URLs and redeploy.
+Domains) for `api.example.com` → `agentdraft-api`, `example.com` → `agentdraft-content`, and
+`app.example.com` → `agentdraft-dashboard`. Then update the `vars` URLs and redeploy.
 
 ## Costs
 

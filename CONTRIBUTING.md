@@ -1,6 +1,6 @@
-# Contributing to WebHost
+# Contributing to AgentDraft
 
-Thanks for your interest. WebHost is a Cloudflare-native monorepo with four parts.
+Thanks for your interest. AgentDraft is a Cloudflare-native monorepo with four parts.
 
 ## Layout
 
@@ -19,7 +19,7 @@ docs/            API/CLI/architecture/self-hosting + OpenAPI
 - `worker/`: `bun install`, `bun run test`, `bunx tsc --noEmit`, `bun run dev`.
 - `content-worker/`: `bun install`, `bunx tsc --noEmit`, `bun run dev`.
 - `dashboard/`: `bun install`, `bun run check`, `bun run build`, `bun run dev`.
-- `cli/`: `go vet ./...`, `go test ./...`, `go build -o webhost .`.
+- `cli/`: `go vet ./...`, `go test ./...`, `go build -o agentdraft .`.
 
 ## The HTML policy is shared, on purpose
 

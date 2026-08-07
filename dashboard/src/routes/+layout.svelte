@@ -6,7 +6,7 @@
 </script>
 
 <nav class="nav">
-  <a class="brand" href="/" style="color:var(--text)">WebHost</a>
+  <a class="brand" href="/" style="color:var(--text)">AgentDraft</a>
   {#if data.authed}
     <a href="/dashboard" class:active={path === "/dashboard"}>Drafts</a>
     <a href="/projects" class:active={path.startsWith("/projects")}>Projects</a>

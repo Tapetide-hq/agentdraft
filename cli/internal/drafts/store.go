@@ -1,4 +1,4 @@
-// Package drafts maps local file paths to remote draft IDs in ~/.webhost/drafts.json,
+// Package drafts maps local file paths to remote draft IDs in ~/.agentdraft/drafts.json,
 // so re-uploading the same file updates the same draft by default.
 package drafts
 
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
 const filePerm = 0o600

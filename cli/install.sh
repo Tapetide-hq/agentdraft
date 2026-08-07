@@ -1,10 +1,10 @@
 #!/bin/sh
-# WebHost CLI installer. Downloads the latest release binary for your platform.
-# Usage: curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/webhost/main/cli/install.sh | sh
+# AgentDraft CLI installer. Downloads the latest release binary for your platform.
+# Usage: curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/agentdraft/main/cli/install.sh | sh
 set -e
 
-REPO="Tapetide-hq/webhost"
-BIN="webhost"
+REPO="Tapetide-hq/agentdraft"
+BIN="agentdraft"
 INSTALL_DIR="${WEBHOST_INSTALL_DIR:-$HOME/.local/bin}"
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')

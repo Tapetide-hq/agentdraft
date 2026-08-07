@@ -1,14 +1,14 @@
 # Architecture
 
-WebHost is a Cloudflare-native monorepo with four deployables and three data stores.
+AgentDraft is a Cloudflare-native monorepo with four deployables and three data stores.
 
 ## Components
 
 | Component | Runtime | Origin | Role |
 |---|---|---|---|
-| `worker/` | Workers (Hono/TS) | `webhost-api.<sub>.workers.dev` | API, auth, uploads, validation |
-| `content-worker/` | Workers (TS) | `webhost-content.<sub>.workers.dev` | Serves user HTML, isolated |
-| `dashboard/` | SvelteKit on Workers | `webhost-dashboard.<sub>.workers.dev` | Human UI (BFF) |
+| `worker/` | Workers (Hono/TS) | `agentdraft-api.<sub>.workers.dev` | API, auth, uploads, validation |
+| `content-worker/` | Workers (TS) | `agentdraft-content.<sub>.workers.dev` | Serves user HTML, isolated |
+| `dashboard/` | SvelteKit on Workers | `agentdraft-dashboard.<sub>.workers.dev` | Human UI (BFF) |
 | `cli/` | Go binary | — | Agent/developer interface |
 | D1 | SQLite at edge | — | Metadata |
 | R2 | Object store | — | HTML blobs |
@@ -26,7 +26,7 @@ successful bypass is contained to a page the attacker already controls. See
 
 ### Upload (`POST /api/upload`)
 ```
-CLI/agent → webhost-api
+CLI/agent → agentdraft-api
   1. auth (bearer key) + scope check + rate limit
   2. validate HTML (parse5) — reject on any active content
   3. allocate version: UPDATE drafts SET last_allocated_version = +1 RETURNING  (atomic)
@@ -37,7 +37,7 @@ CLI/agent → webhost-api
 
 ### Serve (`GET /d/:id`)
 ```
-Browser → webhost-content
+Browser → agentdraft-content
   1. Cache API lookup (keyed on URL only, so conditional headers don't fragment it)
      - on hit, STILL honour If-None-Match → 304, else return the cached response
   2. look up draft + resolve version in D1
@@ -52,9 +52,9 @@ for a year; the mutable latest URL caches 60s.
 
 ### Dashboard (BFF)
 ```
-Browser → webhost-dashboard (SvelteKit server)
+Browser → agentdraft-dashboard (SvelteKit server)
   - API key in httpOnly cookie on the dashboard origin (never in client JS)
-  - server-side calls webhost-api via a SERVICE BINDING (env.API), not a public fetch
+  - server-side calls agentdraft-api via a SERVICE BINDING (env.API), not a public fetch
     (a public workers.dev fetch to a sibling worker fails with CF error 1042)
 ```
 
@@ -84,4 +84,4 @@ A public D1 row pointing at a missing R2 object is never created.
 ## ID scheme
 
 `acct_`+16, `key_`+16, `proj_`+12, `ver_`+16, draft ids are 12 bare chars (used in the
-URL), API keys are `wh_`+40. Alphabet is lowercase + digits (URL-friendly).
+URL), API keys are `ad_`+40. Alphabet is lowercase + digits (URL-friendly).

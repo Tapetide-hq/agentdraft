@@ -8,7 +8,7 @@
 {#if data.drafts.length === 0}
   <div class="card">
     <p>No drafts yet. Upload one with the CLI:</p>
-    <pre class="mono"><code>webhost upload plan.html</code></pre>
+    <pre class="mono"><code>agentdraft upload plan.html</code></pre>
   </div>
 {:else}
   <div class="card">

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with WebHost
+about: Report a problem with AgentDraft
 title: "[bug] "
 labels: bug
 ---
@@ -17,14 +17,14 @@ A clear description of what went wrong.
 **To reproduce**
 Steps / commands (redact any keys):
 ```
-webhost ...
+agentdraft ...
 ```
 
 **Expected behavior**
 What you expected to happen.
 
 **Environment**
-- CLI version (`webhost --version`):
+- CLI version (`agentdraft --version`):
 - OS/arch:
 - Self-hosted or reference deployment:
 

@@ -1,4 +1,4 @@
--- WebHost initial schema (D1 / SQLite).
+-- AgentDraft initial schema (D1 / SQLite).
 --
 -- Design notes:
 --  * v1 is invite-only: publishing requires an API key tied to an account. There is

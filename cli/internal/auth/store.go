@@ -1,4 +1,4 @@
-// Package auth stores CLI credentials in ~/.webhost/credentials.json (0600).
+// Package auth stores CLI credentials in ~/.agentdraft/credentials.json (0600).
 package auth
 
 import (
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
 const filePerm = 0o600
@@ -34,7 +34,7 @@ func Load() (*Credentials, error) {
 	b, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("not authenticated: run `webhost auth login` or `webhost auth set <key>`")
+			return nil, fmt.Errorf("not authenticated: run `agentdraft auth login` or `agentdraft auth set <key>`")
 		}
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func Load() (*Credentials, error) {
 		return nil, fmt.Errorf("parse credentials.json: %w", err)
 	}
 	if c.APIKey == "" {
-		return nil, fmt.Errorf("no API key stored; run `webhost auth set <key>`")
+		return nil, fmt.Errorf("no API key stored; run `agentdraft auth set <key>`")
 	}
 	return c, nil
 }

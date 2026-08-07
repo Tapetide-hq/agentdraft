@@ -8,7 +8,7 @@ possible, a proof-of-concept. You'll get an acknowledgement within a few days.
 
 ## Threat model
 
-WebHost serves **fully attacker-controlled HTML**. The design separates two distinct
+AgentDraft serves **fully attacker-controlled HTML**. The design separates two distinct
 concerns that are often conflated:
 
 ### 1. Protecting the management account (dashboard + API)
@@ -16,8 +16,8 @@ concerns that are often conflated:
 Uploaded HTML must never be able to reach a dashboard session or API credential.
 
 - **Origin isolation is the primary control.** User HTML is served from
-  `webhost-content.<subdomain>.workers.dev` — a *different origin* from the API and
-  dashboard (`webhost-api.…`, `webhost-dashboard.…`). A stored-XSS in a published page
+  `agentdraft-content.<subdomain>.workers.dev` — a *different origin* from the API and
+  dashboard (`agentdraft-api.…`, `agentdraft-dashboard.…`). A stored-XSS in a published page
   runs in the content origin, which holds no cookies and has no access to the other
   origins. Cookie `Path` scoping is explicitly **not** relied upon as a boundary — it
   isn't one against same-origin JavaScript.
@@ -43,7 +43,7 @@ A byte-for-byte HTML document can still:
 - Track viewers through remote `https:` images.
 - Link to a phishing or malware site.
 
-WebHost's purpose is publishing rich, self-contained HTML documents, so remote `https:`
+AgentDraft's purpose is publishing rich, self-contained HTML documents, so remote `https:`
 images and links are **allowed by design**. Consequently:
 
 - **Every published page is treated as untrusted content.** No page carries a claim of
@@ -51,7 +51,7 @@ images and links are **allowed by design**. Consequently:
 - All served content sends `X-Robots-Tag: noindex, nofollow` (published drafts are not
   meant to be search-indexed) and `Referrer-Policy: no-referrer`.
 - Drafts can be disabled (returns HTTP 451) and there is an abuse-report path.
-- Consumers of a WebHost URL should treat it as they would any user-generated content.
+- Consumers of a AgentDraft URL should treat it as they would any user-generated content.
 
 ## HTML validation policy
 
@@ -74,7 +74,7 @@ sole validation authority — a second full validator would drift from it.
 
 ## Byte-for-byte serving vs CDN HTML injection (self-hosting hazard)
 
-WebHost promises that a published document is served byte-for-byte. Cloudflare zone
+AgentDraft promises that a published document is served byte-for-byte. Cloudflare zone
 features that **rewrite HTML in flight** silently break that promise *and* inject
 `<script>` into content whose entire security model guarantees none:
 
@@ -106,7 +106,7 @@ and `/raw` paths, and asserts no `<script>` reaches a served document.
 
 ## API key security
 
-- Keys are `wh_` + 40 chars of CSPRNG output (~200 bits of entropy).
+- Keys are `ad_` + 40 chars of CSPRNG output (~200 bits of entropy).
 - Only a domain-separated SHA-256 digest is stored (peppered). Keys are never stored or
   logged in plaintext, and the full value is shown exactly once at creation.
 - Key stretching (PBKDF2/bcrypt) is deliberately **not** used: keys are high-entropy

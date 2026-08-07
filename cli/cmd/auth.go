@@ -5,9 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/api"
-	"github.com/Tapetide-hq/webhost/cli/internal/auth"
-	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/api"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/auth"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
 var authCmd = &cobra.Command{
@@ -17,7 +17,7 @@ var authCmd = &cobra.Command{
 
 var authSetCmd = &cobra.Command{
 	Use:   "set <api-key>",
-	Short: "Store an API key (wh_...)",
+	Short: "Store an API key (ad_...)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
@@ -42,10 +42,10 @@ var authSetCmd = &cobra.Command{
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Sign in (paste an API key created in the dashboard)",
-	Long: `Sign in to WebHost.
+	Long: `Sign in to AgentDraft.
 
 v1 is invite-only: create an API key in the dashboard (Settings -> API Keys) and
-paste it here. This is the same as 'webhost auth set <key>' but interactive.`,
+paste it here. This is the same as 'agentdraft auth set <key>' but interactive.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {

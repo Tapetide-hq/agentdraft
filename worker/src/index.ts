@@ -30,11 +30,11 @@ app.use("/api/*", async (c, next) => {
 app.get("/", (c) =>
   c.json({
     ok: true,
-    service: "webhost-api",
+    service: "agentdraft-api",
     environment: c.env.ENVIRONMENT,
     content_base_url: c.env.CONTENT_BASE_URL,
     google_oauth_enabled: c.env.GOOGLE_OAUTH_ENABLED === "true",
-    docs: "https://github.com/Hitesh-Sisara/webhost",
+    docs: "https://github.com/Hitesh-Sisara/agentdraft",
   }),
 );
 

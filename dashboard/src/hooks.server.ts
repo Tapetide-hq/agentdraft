@@ -5,10 +5,10 @@ import type { Handle } from "@sveltejs/kit";
 export const handle: Handle = async ({ event, resolve }) => {
   const env = event.platform?.env;
   event.locals.apiBase =
-    env?.API_BASE_URL ?? "https://webhost-api.tapetide.workers.dev";
+    env?.API_BASE_URL ?? "https://agentdraft-api.tapetide.workers.dev";
   event.locals.contentBase =
-    env?.CONTENT_BASE_URL ?? "https://webhost-content.tapetide.workers.dev";
-  event.locals.apiKey = event.cookies.get("wh_key") ?? null;
+    env?.CONTENT_BASE_URL ?? "https://agentdraft-content.tapetide.workers.dev";
+  event.locals.apiKey = event.cookies.get("ad_key") ?? null;
   event.locals.apiService = env?.API ?? null;
   return resolve(event);
 };

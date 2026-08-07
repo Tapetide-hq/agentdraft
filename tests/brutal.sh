@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Brutal end-to-end / adversarial test suite for WebHost.
+# Brutal end-to-end / adversarial test suite for AgentDraft.
 #
 # This is NOT a smoke test. It attacks the deployment: XSS bypass attempts, auth
 # bypass, privilege escalation, cross-tenant access, injection, race conditions,
@@ -9,7 +9,7 @@
 # Usage:
 #   API=https://api.postplan.tapetide.com \
 #   CONTENT=https://postplan.tapetide.com \
-#   KEY=wh_xxx [BOOTSTRAP_SECRET=xxx] ./tests/brutal.sh
+#   KEY=ad_xxx [BOOTSTRAP_SECRET=xxx] ./tests/brutal.sh
 #
 # Exit code 0 only if every assertion passes.
 
@@ -19,7 +19,7 @@ API="${API:-https://api.postplan.tapetide.com}"
 CONTENT="${CONTENT:-https://postplan.tapetide.com}"
 KEY="${KEY:-}"
 
-if [ -z "$KEY" ]; then echo "FATAL: set KEY to a valid wh_ API key" >&2; exit 2; fi
+if [ -z "$KEY" ]; then echo "FATAL: set KEY to a valid ad_ API key" >&2; exit 2; fi
 
 PASS=0; FAIL=0; FAILED_NAMES=()
 RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; OFF=$'\033[0m'
@@ -79,7 +79,7 @@ print(json.dumps(o))
 # upload_html <html> [draft] -> prints "HTTPCODE<TAB>BODY"
 upload_html() { upload_raw "$(mkjson "$1" "${2:-}")"; }
 
-printf "${BOLD}WebHost brutal suite${OFF}\n"
+printf "${BOLD}AgentDraft brutal suite${OFF}\n"
 printf "  API=%s\n  CONTENT=%s\n" "$API" "$CONTENT"
 
 # This suite performs ~70 uploads. The API rate-limits uploads to 100/hour PER KEY, so
@@ -238,8 +238,8 @@ else ok "content origin sets NO cookie"; fi
 # ------------------------------------------------------------------ auth
 sect "5. Authentication / authorization"
 assert_eq "no credential -> 401"        401 "$(code -X POST "$API/api/upload" -H 'content-type: application/json' -d '{"html":"<p>x</p>"}')"
-assert_eq "garbage bearer -> 401"       401 "$(code -X POST "$API/api/upload" -H 'authorization: Bearer wh_0000000000000000000000000000000000000000' -H 'content-type: application/json' -d '{"html":"<p>x</p>"}')"
-assert_eq "non-wh_ bearer -> 401"       401 "$(code -X POST "$API/api/upload" -H 'authorization: Bearer notakey' -H 'content-type: application/json' -d '{"html":"<p>x</p>"}')"
+assert_eq "garbage bearer -> 401"       401 "$(code -X POST "$API/api/upload" -H 'authorization: Bearer ad_0000000000000000000000000000000000000000' -H 'content-type: application/json' -d '{"html":"<p>x</p>"}')"
+assert_eq "non-ad_ bearer -> 401"       401 "$(code -X POST "$API/api/upload" -H 'authorization: Bearer notakey' -H 'content-type: application/json' -d '{"html":"<p>x</p>"}')"
 assert_eq "Basic scheme -> 401"         401 "$(code -X POST "$API/api/upload" -H 'authorization: Basic YWRtaW46YWRtaW4=' -d '{}')"
 assert_eq "empty bearer -> 401"         401 "$(code -X POST "$API/api/upload" -H 'authorization: Bearer ' -d '{}')"
 assert_eq "valid key /api/me -> 200"    200 "$(code "$API/api/me" -H "authorization: Bearer $KEY")"

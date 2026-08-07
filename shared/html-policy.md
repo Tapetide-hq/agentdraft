@@ -1,6 +1,6 @@
-# WebHost HTML Policy
+# AgentDraft HTML Policy
 
-This is the normative specification of what HTML WebHost accepts. It is implemented
+This is the normative specification of what HTML AgentDraft accepts. It is implemented
 **twice** — once in TypeScript (`worker/src/services/html-validator.ts`) and once in Go
 (`cli/internal/validate/html.go`) — and both implementations are tested against the
 single shared corpus in `shared/html-policy-fixtures.json`.
@@ -11,7 +11,7 @@ failing test in one of the two suites, not a runtime surprise.
 ## Threat model
 
 Uploaded HTML is **fully attacker-controlled**. It is served byte-for-byte from a
-dedicated origin (`webhost-content`) that never holds a session cookie, so a successful
+dedicated origin (`agentdraft-content`) that never holds a session cookie, so a successful
 bypass yields defacement of an already-attacker-controlled page rather than access to
 another user's account. Validation is the first layer; the serving CSP is the second.
 

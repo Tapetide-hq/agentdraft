@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for WebHost
+about: Suggest an idea for AgentDraft
 title: "[feat] "
 labels: enhancement
 ---

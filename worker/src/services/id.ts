@@ -13,11 +13,11 @@ export function newDraftId(): string {
   return gen().slice(0, 12);
 }
 
-// A full API key: "wh_" + 40 chars of high-entropy base36. The visible prefix used
-// for display/support is the first 11 chars ("wh_" + 8).
+// A full API key: "ad_" + 40 chars of high-entropy base36. The visible prefix used
+// for display/support is the first 11 chars ("ad_" + 8).
 export function newApiKey(): { full: string; prefix: string } {
   const body = gen().slice(0, 40);
-  const full = `wh_${body}`;
+  const full = `ad_${body}`;
   return { full, prefix: full.slice(0, 11) };
 }
 

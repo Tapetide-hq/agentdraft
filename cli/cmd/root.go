@@ -6,13 +6,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/version"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/version"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "webhost",
+	Use:   "agentdraft",
 	Short: "Publish static HTML and get a stable public URL",
-	Long: `webhost publishes static HTML documents (plans, proposals, reports) and
+	Long: `agentdraft publishes static HTML documents (plans, proposals, reports) and
 returns a stable public URL. Built for AI agents, CI pipelines, and developers.
 
 Uploaded HTML is validated server-side and served byte-for-byte from an isolated

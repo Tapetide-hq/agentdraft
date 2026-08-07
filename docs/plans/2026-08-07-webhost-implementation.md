@@ -1,11 +1,11 @@
-# WebHost Implementation Plan
+# AgentDraft Implementation Plan
 
 **Goal:** Ship an open-source, Cloudflare-native service that lets AI agents publish
 static HTML documents and get back a stable public URL, with versioning, a Go CLI, and
 a dashboard.
 
-**Architecture:** Two Workers on two ORIGINS. `webhost-api` serves the JSON API and the
-SvelteKit dashboard. `webhost-content` serves untrusted user HTML from a separate
+**Architecture:** Two Workers on two ORIGINS. `agentdraft-api` serves the JSON API and the
+SvelteKit dashboard. `agentdraft-content` serves untrusted user HTML from a separate
 workers.dev origin so a CSP bypass in an uploaded document cannot reach a dashboard
 session. D1 holds metadata, R2 holds HTML blobs, KV holds rate-limit counters.
 
@@ -18,15 +18,15 @@ adapter-cloudflare, Go 1.24 + cobra CLI, vitest + `go test`.
 
 | Constraint | Consequence |
 |---|---|
-| `webhost.dev` is NOT owned. Only `*.workers.dev` available. | All URLs are `*.workers.dev`. Custom domain documented, not configured. |
+| `agentdraft.dev` is NOT owned. Only `*.workers.dev` available. | All URLs are `*.workers.dev`. Custom domain documented, not configured. |
 | Google OAuth client CANNOT be provisioned autonomously (needs interactive browser consent). | Google OAuth ships as a **dormant, config-gated** code path. The **primary, end-to-end-tested** auth is a CLI device-pairing flow + a bootstrap root key. |
 | No email provider provisioned. | No magic-link auth. |
 | CF account `b4fc0a2a9ebe835707306fb9c2d1b53f`, token scoped Workers+D1+R2+KV. | Resources created fresh; no sibling resources referenced. |
 
 **Provisioned resources (created by this build, owned by this build):**
-- D1 `webhost-db` = `6c8ca102-ac0b-4294-8f86-fccea354a1e5`
-- R2 `webhost-html`
-- KV `webhost-ratelimit` = `24362ce9d8584a209ebc781d6dc4af42`
+- D1 `agentdraft-db` = `6c8ca102-ac0b-4294-8f86-fccea354a1e5`
+- R2 `agentdraft-html`
+- KV `agentdraft-ratelimit` = `24362ce9d8584a209ebc781d6dc4af42`
 
 ---
 
@@ -46,7 +46,7 @@ highest-weight and is folded here.
    (guarded by a Worker secret) mints the owner + first scoped key. The CLI uses bearer
    keys directly. The dashboard takes a pasted scoped key once at `POST /api/session`,
    verifies it, creates a random revocable D1 session, sets
-   `__Host-webhost_session=…; Secure; HttpOnly; SameSite=Strict; Path=/`. Google OAuth
+   `__Host-agentdraft_session=…; Secure; HttpOnly; SameSite=Strict; Path=/`. Google OAuth
    remains a **schema/interface seam only** — NOT dead callback code. v1 is
    single-operator / invite-only by design; public enrollment is later work.
 3. **Anonymous uploads: REMOVED from v1.** Fusion was unambiguous: 10/hr/IP + noindex +
@@ -130,7 +130,7 @@ highest-weight and is folded here.
 ## Phase 5 — Go CLI
 - cobra: `auth login` (device pairing), `auth set`, `auth logout`, `whoami`, `upload`,
   `fetch`, `list`, `projects`, `config`, `version`.
-- `~/.webhost/` at 0700, files 0600. Git metadata collection. Local draft mapping.
+- `~/.agentdraft/` at 0700, files 0600. Git metadata collection. Local draft mapping.
 - Unit tests for validate/config/drafts/git. Cross-compile check.
 
 ## Phase 6 — SvelteKit dashboard

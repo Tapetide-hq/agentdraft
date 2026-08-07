@@ -7,7 +7,7 @@
 // Stripe/GitHub use for API tokens): fast, constant-work, one indexed DB lookup.
 
 export async function hashApiKey(fullKey: string, pepper: string): Promise<string> {
-  const data = new TextEncoder().encode(`webhost.apikey.v1|${pepper}|${fullKey}`);
+  const data = new TextEncoder().encode(`agentdraft.apikey.v1|${pepper}|${fullKey}`);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return hex(digest);
 }

@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Tapetide-hq/webhost/cli/internal/api"
-	"github.com/Tapetide-hq/webhost/cli/internal/auth"
-	"github.com/Tapetide-hq/webhost/cli/internal/config"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/api"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/auth"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
 var (

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "webhost-api",
+  "name": "agentdraft-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,28 +8,28 @@
     "ENVIRONMENT": "production",
     // Public base URL of the CONTENT worker (separate origin). Overwritten after the
     // content worker is first deployed and its workers.dev URL is known.
-    "CONTENT_BASE_URL": "https://postplan.tapetide.com",
-    "DASHBOARD_ORIGIN": "https://app.postplan.tapetide.com",
+    "CONTENT_BASE_URL": "https://agentdraft.tapetide.com",
+    "DASHBOARD_ORIGIN": "https://app.agentdraft.tapetide.com",
     "GOOGLE_OAUTH_ENABLED": "false"
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "webhost-db",
-      "database_id": "6c8ca102-ac0b-4294-8f86-fccea354a1e5",
+      "database_name": "agentdraft-db",
+      "database_id": "16789f34-d974-4a5f-85c6-457599145fea",
       "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "STORAGE",
-      "bucket_name": "webhost-html"
+      "bucket_name": "agentdraft-html"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "RATELIMIT",
-      "id": "24362ce9d8584a209ebc781d6dc4af42"
+      "id": "96fb4011d5474288a280e9a26135c512"
     }
   ],
   "placement": { "mode": "smart" },

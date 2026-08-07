@@ -1,4 +1,4 @@
-// Package config manages ~/.webhost/config.json and directory layout.
+// Package config manages ~/.agentdraft/config.json and directory layout.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DefaultAPIURL = "https://api.postplan.tapetide.com"
+	DefaultAPIURL = "https://api.agentdraft.tapetide.com"
 	dirPerm       = 0o700
 	filePerm      = 0o600
 )
@@ -18,13 +18,13 @@ type Config struct {
 	APIURL string `json:"api_url"`
 }
 
-// Dir returns ~/.webhost, creating it (0700) if needed.
+// Dir returns ~/.agentdraft, creating it (0700) if needed.
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	d := filepath.Join(home, ".webhost")
+	d := filepath.Join(home, ".agentdraft")
 	if err := os.MkdirAll(d, dirPerm); err != nil {
 		return "", err
 	}

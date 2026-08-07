@@ -20,8 +20,8 @@ session.post("/", async (c) => {
   const badField = badStringField(c, body, ["api_key"]);
   if (badField) return badField;
   const apiKey = typeof body.api_key === "string" ? body.api_key.trim() : "";
-  if (!apiKey.startsWith("wh_")) {
-    return jsonError(c, 400, "E_BAD_KEY", "Provide a valid wh_ API key.");
+  if (!apiKey.startsWith("ad_")) {
+    return jsonError(c, 400, "E_BAD_KEY", "Provide a valid ad_ API key.");
   }
   const hash = await hashApiKey(apiKey, c.env.API_KEY_PEPPER ?? "");
   const row = await c.env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ?")

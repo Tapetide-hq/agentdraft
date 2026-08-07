@@ -1,4 +1,4 @@
-// WebHost content-serving Worker.
+// AgentDraft content-serving Worker.
 //
 // Serves uploaded HTML byte-for-byte from an ISOLATED origin. It only ever READS
 // D1 + R2. It never authenticates a user and never sets a cookie. Every response is
@@ -93,7 +93,7 @@ export default {
     const m = url.pathname.match(/^\/d\/([a-z0-9]{6,32})(?:\/v\/(\d+))?(?:\/raw)?\/?$/);
     if (url.pathname === "/" ) {
       return new Response(
-        JSON.stringify({ ok: true, service: "webhost-content", note: "Serves published HTML at /d/:id" }),
+        JSON.stringify({ ok: true, service: "agentdraft-content", note: "Serves published HTML at /d/:id" }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
@@ -182,8 +182,8 @@ export default {
     const headers = securityHeaders({
       "Cache-Control": cacheControl,
       ETag: etag,
-      "X-WebHost-Draft-Id": draftId,
-      "X-WebHost-Version": String(version.version_number),
+      "X-AgentDraft-Draft-Id": draftId,
+      "X-AgentDraft-Version": String(version.version_number),
     });
 
     // Honour conditional requests BEFORE touching R2. Emitting an ETag without

@@ -1,22 +1,22 @@
-# WebHost
+# AgentDraft
 
 > Publish static HTML and get a stable public URL — instantly, no build step.
 > Built for AI agents, CI pipelines, and developers. Cloudflare-native. MIT.
 
-WebHost lets an agent generate an HTML document (a plan, a proposal, a report),
+AgentDraft lets an agent generate an HTML document (a plan, a proposal, a report),
 upload it with one command, and get back a public URL a human can open in a
 browser. Every upload to the same draft creates a new immutable version; old
 versions stay accessible.
 
 ```bash
-webhost upload plan.html --project "migration"
+agentdraft upload plan.html --project "migration"
 # → https://postplan.tapetide.com/d/a1b2c3d4e5f6
 ```
 
 ## Why it's shaped this way
 
 - **Two origins, always.** The API + dashboard live on one Worker origin; user
-  HTML is served from a *separate* origin (`webhost-content`) that never holds a
+  HTML is served from a *separate* origin (`agentdraft-content`) that never holds a
   session cookie. Uploaded HTML is untrusted, and a same-origin XSS in a
   published page must not reach a dashboard session. This is the single most
   important design decision in the project.
@@ -65,14 +65,14 @@ webhost upload plan.html --project "migration"
 See [docs/self-hosting.md](./docs/self-hosting.md) for the full guide. In short:
 
 ```bash
-git clone https://github.com/Tapetide-hq/webhost.git && cd webhost
-wrangler d1 create webhost-db          # put the id in worker/wrangler.jsonc
-wrangler r2 bucket create webhost-html
-wrangler kv namespace create webhost-ratelimit
-wrangler d1 migrations apply webhost-db --remote
+git clone https://github.com/Tapetide-hq/agentdraft.git && cd agentdraft
+wrangler d1 create agentdraft-db          # put the id in worker/wrangler.jsonc
+wrangler r2 bucket create agentdraft-html
+wrangler kv namespace create agentdraft-ratelimit
+wrangler d1 migrations apply agentdraft-db --remote
 cd worker && bun install && bun run deploy
 cd ../content-worker && bun install && bun run deploy
-cd ../cli && go build -o webhost .
+cd ../cli && go build -o agentdraft .
 ```
 
 ## Testing
@@ -84,7 +84,7 @@ deployment:
 ```bash
 API=https://api.postplan.tapetide.com \
 CONTENT=https://postplan.tapetide.com \
-KEY=wh_your_key ./tests/brutal.sh
+KEY=ad_your_key ./tests/brutal.sh
 ```
 
 174 assertions covering XSS/policy bypass attempts, auth and privilege escalation,

@@ -9,7 +9,7 @@
 
 import type {} from "../worker-configuration.js";
 
-export interface WebHostSecrets {
+export interface AgentDraftSecrets {
   BOOTSTRAP_SECRET?: string; // guards the one-time /api/bootstrap
   API_KEY_PEPPER?: string; // domain-separation salt for API key hashing
   // OAuth seam — unused in v1, declared so the interface is stable for later work.
@@ -26,4 +26,4 @@ type ConfigurableVars = "ENVIRONMENT" | "CONTENT_BASE_URL" | "DASHBOARD_ORIGIN" 
 
 export type Env = Omit<globalThis.Env, ConfigurableVars> &
   Record<ConfigurableVars, string> &
-  WebHostSecrets;
+  AgentDraftSecrets;

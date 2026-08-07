@@ -1,4 +1,4 @@
-// Package api is the HTTP client for the WebHost API.
+// Package api is the HTTP client for the AgentDraft API.
 package api
 
 import (

@@ -5,7 +5,7 @@ import { hashApiKey } from "../services/crypto.js";
 import { jsonError } from "../lib/http.js";
 import { parse as parseCookie } from "../lib/cookie.js";
 
-const SESSION_COOKIE = "__Host-webhost_session";
+const SESSION_COOKIE = "__Host-agentdraft_session";
 
 // Resolve the principal from either a bearer API key or a session cookie.
 // Returns null (does not throw) if unauthenticated; middleware decides what to do.
@@ -15,7 +15,7 @@ async function resolveAuth(c: Ctx): Promise<AuthContext | null> {
   const authz = c.req.header("authorization");
   if (authz?.startsWith("Bearer ")) {
     const key = authz.slice(7).trim();
-    if (!key.startsWith("wh_")) return null;
+    if (!key.startsWith("ad_")) return null;
     const pepper = c.env.API_KEY_PEPPER ?? "";
     const hash = await hashApiKey(key, pepper);
     const row = await c.env.DB.prepare(

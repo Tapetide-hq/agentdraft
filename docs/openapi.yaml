@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: WebHost API
+  title: AgentDraft API
   version: 0.1.0
   description: >-
     Publish static HTML and get a stable public URL. Uploaded HTML is validated
@@ -17,7 +17,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: wh_ token
+      bearerFormat: ad_ token
   schemas:
     Error:
       type: object

@@ -1,4 +1,4 @@
-// The single authoritative HTML validation gate for WebHost.
+// The single authoritative HTML validation gate for AgentDraft.
 //
 // Uses parse5 (a spec-compliant HTML5 tree parser) so element/attribute/namespace
 // semantics match what a browser actually does — a regex/blocklist over raw bytes is

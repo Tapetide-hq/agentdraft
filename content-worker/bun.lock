@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "webhost-content",
+      "name": "agentdraft-content",
       "devDependencies": {
         "@cloudflare/workers-types": "4.20241127.0",
         "typescript": "5.7.2",

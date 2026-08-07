@@ -5,7 +5,7 @@ dist/
 .dev.vars
 *.log
 .DS_Store
-cli/webhost
+cli/agentdraft
 cli/dist/
 .env
 .env.*
