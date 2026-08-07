@@ -1,0 +1,187 @@
+import { Hono } from "hono";
+import type { Env } from "../env.js";
+import type { AuthContext, Draft, DraftVersion } from "../types.js";
+import { validateHtml, MAX_BYTES } from "../services/html-validator.js";
+import { objectKey, putHtml } from "../services/storage.js";
+import { newDraftId, newId } from "../services/id.js";
+import { sha256Hex } from "../services/crypto.js";
+import { jsonError, clientIp } from "../lib/http.js";
+
+type Vars = { Variables: { auth: AuthContext }; Bindings: Env };
+
+const upload = new Hono<Vars>();
+
+// POST /api/upload
+// Body: { html, filename?, project_id?, draft_id?, title?, description?, metadata? }
+// Header: Idempotency-Key (optional) — dedupes agent retries.
+upload.post("/", async (c) => {
+  const auth = c.get("auth");
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError(c, 400, "E_BAD_JSON", "Request body must be JSON.");
+  }
+
+  const html = typeof body.html === "string" ? body.html : "";
+  if (!html) return jsonError(c, 400, "E_NO_HTML", "Field 'html' is required.");
+
+  // (1) validate — the single authoritative gate.
+  const result = validateHtml(html);
+  if (!result.ok) {
+    return c.json(
+      {
+        ok: false,
+        error: { code: "E_VALIDATION", message: "HTML rejected by validation policy." },
+        errors: result.errors,
+        warnings: result.warnings,
+      },
+      422,
+    );
+  }
+
+  const bytes = new TextEncoder().encode(html);
+  const contentHash = await sha256Hex(html);
+  const idempotencyKey = c.req.header("idempotency-key") ?? null;
+  const filename = typeof body.filename === "string" ? body.filename : null;
+  const description = typeof body.description === "string" ? body.description : null;
+  const overrideTitle = typeof body.title === "string" ? body.title : null;
+  const title = overrideTitle ?? result.title ?? "Untitled";
+  const meta = (body.metadata ?? {}) as Record<string, unknown>;
+
+  // Resolve or create the draft, verifying ownership.
+  let draft: Draft | null = null;
+  const reqDraftId = typeof body.draft_id === "string" ? body.draft_id : null;
+  if (reqDraftId) {
+    draft = await c.env.DB.prepare("SELECT * FROM drafts WHERE id = ? AND deleted_at IS NULL")
+      .bind(reqDraftId)
+      .first<Draft>();
+    if (!draft) return jsonError(c, 404, "E_DRAFT_NOT_FOUND", "draft_id not found.");
+    if (draft.account_id !== auth.account.id)
+      return jsonError(c, 403, "E_FORBIDDEN", "You do not own this draft.");
+  }
+
+  // Optional project ownership check.
+  let projectId: string | null = typeof body.project_id === "string" ? body.project_id : null;
+  if (projectId) {
+    const proj = await c.env.DB.prepare(
+      "SELECT id FROM projects WHERE id = ? AND account_id = ? AND archived_at IS NULL",
+    )
+      .bind(projectId, auth.account.id)
+      .first<{ id: string }>();
+    if (!proj) return jsonError(c, 404, "E_PROJECT_NOT_FOUND", "project_id not found.");
+  }
+
+  if (!draft) {
+    const id = newDraftId();
+    await c.env.DB.prepare(
+      "INSERT INTO drafts (id, project_id, account_id, title, description, last_allocated_version) VALUES (?, ?, ?, ?, ?, 0)",
+    )
+      .bind(id, projectId, auth.account.id, title, description)
+      .run();
+    draft = await c.env.DB.prepare("SELECT * FROM drafts WHERE id = ?")
+      .bind(id)
+      .first<Draft>();
+    if (!draft) return jsonError(c, 500, "E_INTERNAL", "Failed to create draft.");
+  }
+
+  // Idempotency: if this draft already saw this idempotency key, return that version.
+  if (idempotencyKey) {
+    const existing = await c.env.DB.prepare(
+      "SELECT * FROM draft_versions WHERE draft_id = ? AND idempotency_key = ?",
+    )
+      .bind(draft.id, idempotencyKey)
+      .first<DraftVersion>();
+    if (existing) {
+      return c.json(makeResponse(c.env, draft.id, existing, result.warnings, true));
+    }
+  }
+
+  // (2) atomically allocate a version number (UPDATE ... RETURNING). Race-free.
+  const allocated = await c.env.DB.prepare(
+    "UPDATE drafts SET last_allocated_version = last_allocated_version + 1, updated_at = datetime('now') WHERE id = ? AND account_id = ? RETURNING last_allocated_version",
+  )
+    .bind(draft.id, auth.account.id)
+    .first<{ last_allocated_version: number }>();
+  if (!allocated) return jsonError(c, 500, "E_INTERNAL", "Version allocation failed.");
+  const versionNumber = allocated.last_allocated_version;
+  const versionId = newId("ver_");
+  const key = objectKey(draft.id, versionId);
+
+  // (3) R2 PUT FIRST. An orphan R2 object is harmless garbage; a D1 row pointing at a
+  // missing object is a 500 on a public URL. Never invert this ordering.
+  await putHtml(c.env, key, html, {
+    draft_id: draft.id,
+    version_number: String(versionNumber),
+    content_hash: contentHash,
+    uploaded_at: new Date().toISOString(),
+  });
+
+  // (4) D1 batch: insert the version row AND advance published_version via MAX so
+  // out-of-order concurrent finishers cannot move "latest" backward.
+  const gitDirty =
+    typeof meta.git_dirty === "boolean" ? (meta.git_dirty ? 1 : 0) : null;
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO draft_versions
+        (id, draft_id, version_number, object_key, content_hash, file_size, title,
+         original_filename, created_by_key_id, idempotency_key, source_ip, cli_version,
+         git_branch, git_commit_sha, git_dirty)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      versionId,
+      draft.id,
+      versionNumber,
+      key,
+      contentHash,
+      bytes.length,
+      title,
+      filename,
+      auth.keyId ?? null,
+      idempotencyKey,
+      clientIp(c),
+      typeof meta.cli_version === "string" ? meta.cli_version : null,
+      typeof meta.git_branch === "string" ? meta.git_branch : null,
+      typeof meta.git_commit_sha === "string" ? meta.git_commit_sha : null,
+      gitDirty,
+    ),
+    c.env.DB.prepare(
+      `UPDATE drafts
+         SET published_version = MAX(COALESCE(published_version, 0), ?),
+             current_version_id = CASE WHEN ? >= COALESCE(published_version, 0) THEN ? ELSE current_version_id END,
+             title = ?,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    ).bind(versionNumber, versionNumber, versionId, title, draft.id),
+  ]);
+
+  const version = await c.env.DB.prepare("SELECT * FROM draft_versions WHERE id = ?")
+    .bind(versionId)
+    .first<DraftVersion>();
+  return c.json(makeResponse(c.env, draft.id, version!, result.warnings, false), 201);
+});
+
+function makeResponse(
+  env: Env,
+  draftId: string,
+  v: DraftVersion,
+  warnings: { code: string; message: string }[],
+  idempotentReplay: boolean,
+) {
+  const base = env.CONTENT_BASE_URL.replace(/\/$/, "");
+  return {
+    ok: true,
+    draft_id: draftId,
+    version_id: v.id,
+    version_number: v.version_number,
+    content_hash: v.content_hash,
+    public_url: `${base}/d/${draftId}`,
+    raw_url: `${base}/d/${draftId}/raw`,
+    version_url: `${base}/d/${draftId}/v/${v.version_number}`,
+    title: v.title,
+    warnings,
+    idempotent_replay: idempotentReplay,
+  };
+}
+
+export default upload;
