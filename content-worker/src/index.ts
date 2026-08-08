@@ -39,23 +39,39 @@ function renderedKeyFor(sourceKey: string): string {
 // Defense-in-depth CSP. script-src 'none' means even if validation somehow let a
 // script through, the browser won't execute it. style-src 'unsafe-inline' is required
 // because the product's whole point is self-contained styled documents.
-const CSP = [
-  "default-src 'none'",
-  "img-src https: data:",
-  "style-src 'unsafe-inline'",
-  "font-src https: data:",
-  "media-src https:",
-  "script-src 'none'",
-  "connect-src 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'self'", // allow dashboard preview iframe on the api origin
-  "base-uri 'none'",
-].join("; ");
+//
+// frame-ancestors is built PER REQUEST because it must name the dashboard origin
+// explicitly. It previously read `frame-ancestors 'self'` with a comment claiming that
+// allowed the dashboard preview iframe — it does not. 'self' is THIS origin (the content
+// origin); the dashboard is a DIFFERENT origin, so the browser refused the frame and the
+// preview rendered as Chrome's blank subframe error page. The comment asserted the
+// opposite of the behaviour, which is why it survived review.
+function buildCSP(dashboardOrigin: string | undefined): string {
+  // Fall back to 'none' rather than 'self' when unset: if the embedding origin is not
+  // configured, refusing all framing is the safe default. 'self' would be a lie either
+  // way, and a permissive fallback on an untrusted-content origin is the wrong risk.
+  const frameAncestors = dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
+  return [
+    "default-src 'none'",
+    "img-src https: data:",
+    "style-src 'unsafe-inline'",
+    "font-src https: data:",
+    "media-src https:",
+    "script-src 'none'",
+    "connect-src 'none'",
+    "form-action 'none'",
+    frameAncestors,
+    "base-uri 'none'",
+  ].join("; ");
+}
 
-function securityHeaders(extra: Record<string, string> = {}): Record<string, string> {
+function securityHeaders(
+  dashboardOrigin: string | undefined,
+  extra: Record<string, string> = {},
+): Record<string, string> {
   return {
     "Content-Type": "text/html; charset=utf-8",
-    "Content-Security-Policy": CSP,
+    "Content-Security-Policy": buildCSP(dashboardOrigin),
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",
     "Referrer-Policy": "no-referrer",
@@ -223,7 +239,7 @@ export default {
     // vary the tag by representation to keep conditional requests correct.
     const repEtag = serveRendered ? `"${version.content_hash}-r"` : etag;
 
-    const headers = securityHeaders({
+    const headers = securityHeaders(env.DASHBOARD_ORIGIN, {
       "Content-Type": contentType,
       "Cache-Control": cacheControl,
       ETag: repEtag,

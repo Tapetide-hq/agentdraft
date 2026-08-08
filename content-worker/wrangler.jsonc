@@ -7,6 +7,14 @@
   // workers.dev origin (agentdraft-content.<subdomain>.workers.dev), separate from the
   // API/dashboard origin, so a CSP bypass in a published page cannot reach a session.
   // It NEVER sets a cookie and has NO auth bindings beyond read access to D1 + R2.
+  "vars": {
+    // The ONE origin allowed to embed a draft in an iframe (the dashboard preview).
+    // frame-ancestors must name it EXPLICITLY: 'self' means this content origin, which
+    // is NOT the dashboard origin, so 'self' alone blocks the preview outright.
+    // Keep this an exact origin — never widen it to a wildcard, since framing a draft
+    // is the one capability that lets another site wrap untrusted content in its own UI.
+    "DASHBOARD_ORIGIN": "https://app.agentdraft.tapetide.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",

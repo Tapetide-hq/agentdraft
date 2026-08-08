@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./docs/assets/logo.png" alt="agentdraft" width="88" height="88">
+
 # agentdraft
 
 **Publish AI-agent plans to stable, versioned review URLs — HTML and Markdown, one command.**

@@ -191,8 +191,16 @@ a:hover {
   color: var(--fg);
   text-transform: lowercase; /* lowercase logo vs uppercase headings — deliberate */
   text-decoration: none;
+  /* Mark + wordmark are one lockup: flex keeps them on a shared baseline and stops the
+     glyph drifting when the nav wraps at narrow widths. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
-.nav .brand span {
+/* Scoped to .brand__word deliberately. A bare `.nav .brand span` would also match the
+   wordmark WRAPPER (and any <rect> wrapper inside the inline SVG logo), painting the
+   whole word accent instead of just "draft". */
+.nav .brand .brand__word span {
   color: var(--accent);
 }
 .nav a:not(.brand) {

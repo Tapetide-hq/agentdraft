@@ -28,6 +28,10 @@ trap 'rm -rf "$tmp"' EXIT
 for s in 16 32 48; do rsvg-convert -w $s -h $s "$STATIC/favicon.svg" -o "$tmp/i-$s.png"; done
 convert "$tmp/i-16.png" "$tmp/i-32.png" "$tmp/i-48.png" "$STATIC/favicon.ico"
 
+echo "==> README/docs logo (transparent corners so it reads on GitHub light AND dark)"
+mkdir -p docs/assets
+rsvg-convert -w 120 -h 120 "$STATIC/logo-readme.svg" -o docs/assets/logo.png
+
 echo "==> content-worker embedded icons (16/32 only — keeps the worker bundle small)"
 for s in 16 32; do rsvg-convert -w $s -h $s "$STATIC/favicon.svg" -o "$tmp/c-$s.png"; done
 convert "$tmp/c-16.png" "$tmp/c-32.png" "$tmp/content.ico"

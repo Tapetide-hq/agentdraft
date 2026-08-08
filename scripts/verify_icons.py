@@ -46,11 +46,29 @@ def main() -> int:
 
     print("== files present ==")
     expected = [
-        "favicon.svg", "icon.svg", "favicon.ico", "apple-touch-icon.png",
-        "icon-192.png", "icon-512.png", "site.webmanifest",
+        "favicon.svg", "icon.svg", "logo-readme.svg", "favicon.ico",
+        "apple-touch-icon.png", "icon-192.png", "icon-512.png", "site.webmanifest",
     ]
     for name in expected:
         ok((STATIC / name).is_file(), f"{name} exists")
+
+    print("== README/docs logo ==")
+    readme_png = ROOT / "docs" / "assets" / "logo.png"
+    ok(readme_png.is_file(), "docs/assets/logo.png exists")
+    if readme_png.is_file():
+        rim = Image.open(readme_png).convert("RGBA")
+        rpx = rim.load()
+        # Corners MUST stay transparent: GitHub renders README images on a white canvas
+        # in light mode and near-black in dark mode. An opaque square would show as a
+        # pale or dark box around the rounded badge in one of the two themes.
+        corner_alpha = rpx[0, 0][3]
+        ok(corner_alpha == 0, "logo.png corners transparent", f"alpha={corner_alpha}")
+        colors = {c[:3] for _, c in rim.getcolors(maxcolors=99999) or []}
+        ok((214, 245, 32) in colors, "logo.png carries the accent colour")
+        # The mark is embedded in README.md by relative path; a rename breaks the render
+        # silently (GitHub shows a broken-image glyph, not an error).
+        readme = (ROOT / "README.md").read_text()
+        ok("docs/assets/logo.png" in readme, "README references the logo")
 
     print("== favicon.ico is multi-resolution ==")
     ico = Image.open(STATIC / "favicon.ico")
