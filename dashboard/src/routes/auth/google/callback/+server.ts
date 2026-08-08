@@ -1,6 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { apiFetch } from "$lib/server/api";
+import { safeNext } from "$lib/server/next";
 
 // GET /auth/google/callback — Google redirects the browser back here with ?code&state.
 //
@@ -37,5 +38,11 @@ export const GET: RequestHandler = async ({ url, locals, cookies }) => {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   });
-  throw redirect(303, "/dashboard");
+
+  // Return the viewer to the document that sent them here. Re-validated on read: the
+  // cookie is ours and httpOnly, but sanitising only on write means one future code path
+  // that sets it unchecked becomes an open redirect.
+  const next = safeNext(cookies.get("ad_next"));
+  cookies.delete("ad_next", { path: "/" });
+  throw redirect(303, next);
 };

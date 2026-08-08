@@ -12,6 +12,13 @@
   const errorText = $derived(
     data?.googleError ? (errors[data.googleError] ?? `Google sign-in failed (${data.googleError}).`) : null,
   );
+
+  // Carry the return-to path onto the Google button and the key-paste form action, so a
+  // viewer who followed a private draft link lands back on that document after signing
+  // in rather than on the dashboard. `data.next` is already validated server-side.
+  const nextQS = $derived(
+    data?.next && data.next !== "/dashboard" ? `?next=${encodeURIComponent(data.next)}` : "",
+  );
 </script>
 
 <Seo title="Sign in — agentdraft" description="Sign in to agentdraft." path="/login" noindex />
@@ -30,7 +37,7 @@
       {#if errorText}
         <p class="error" style="margin-top:0">{errorText}</p>
       {/if}
-      <a class="btn" href="/auth/google">Sign in with Google</a>
+      <a class="btn" href="/auth/google{nextQS}">Sign in with Google</a>
       <p class="subtle" style="margin:1rem 0 0;font-size:13px">
         API keys are machine credentials. They publish drafts but cannot sign in here or
         create further keys — so a key leaked from a CI config or a dotfile can never be
@@ -62,7 +69,7 @@
   {#if data?.googleEnabled}
     <div class="card" style="max-width:30rem">
       <h3>Or continue with Google</h3>
-      <a class="btn btn--ghost" href="/auth/google">Sign in with Google</a>
+      <a class="btn btn--ghost" href="/auth/google{nextQS}">Sign in with Google</a>
     </div>
   {/if}
 {/if}

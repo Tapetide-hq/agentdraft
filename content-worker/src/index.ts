@@ -171,7 +171,48 @@ export default {
       .first<DraftRow>();
 
     if (!draft || draft.deleted_at) return textResponse(404, "Not Found");
-    if (!draft.is_public) return textResponse(403, "This draft is not public.");
+
+    // PRIVATE DRAFT -> hand off to the dashboard, never serve it here.
+    //
+    // This worker is cookie-free BY DESIGN: it serves attacker-controlled HTML, so a
+    // session must never be readable on this origin. It therefore cannot authorize a
+    // viewer itself. Instead it redirects to the dashboard, which holds the session,
+    // verifies OWNERSHIP, and streams the same bytes from its own origin.
+    //
+    // The user experience is "the same link just opens when I'm signed in": the shared
+    // URL is unchanged, and the redirect is invisible in normal browsing. A signed-out
+    // viewer lands on sign-in and returns to this exact draft afterwards.
+    //
+    // 302 not 301: visibility is a mutable property. A permanent redirect would be
+    // cached by browsers and intermediaries, so a draft later made public again would
+    // keep bouncing to the dashboard from stale caches.
+    //
+    // Known and accepted: this distinguishes "private" from "nonexistent" to anyone
+    // probing ids, i.e. an existence oracle. With 113-bit ids (and 62-bit legacy ids)
+    // guessing an id is infeasible, so the oracle is not exploitable, and collapsing
+    // private into 404 would make a genuine typo indistinguishable from someone else's
+    // private draft — worse for users, no real gain.
+    if (!draft.is_public) {
+      const dash = env.DASHBOARD_ORIGIN?.replace(/\/$/, "");
+      if (!dash) {
+        // Fail CLOSED. With no dashboard configured there is nowhere to authorize the
+        // viewer, and serving the bytes would publish a draft the owner marked private.
+        return textResponse(403, "This draft is private.");
+      }
+      // Preserve the full path so /v/2 and /raw survive the hand-off and the viewer
+      // lands on the exact representation they asked for.
+      const target = `${dash}/private${url.pathname}${url.search}`;
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: target,
+          // A private draft must never be cached by a shared cache: the next viewer
+          // may be a different principal with different rights.
+          "Cache-Control": "private, no-store",
+          "X-Robots-Tag": "noindex, nofollow",
+        },
+      });
+    }
     if (draft.disabled_at) {
       return textResponse(451, `This document has been disabled. ${draft.disabled_reason ?? ""}`.trim());
     }
