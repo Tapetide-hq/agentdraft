@@ -1,14 +1,24 @@
 <script lang="ts">
   import Seo from "$lib/Seo.svelte";
   let { data } = $props();
-  const draft = data.draft;
-  let selected = $state<number>(draft.published_version ?? 1);
+  // $derived: navigating from one draft to another reuses this component, so a plain
+  // `const draft = data.draft` would keep showing the PREVIOUS draft's title and id.
+  const draft = $derived(data.draft);
+  // `selected` starts unset and is seeded by the effect below, so no prop is read at
+  // initialisation (which would freeze it at first-render's value). The effect also
+  // re-points the selector when navigating from one draft to another.
+  let selected = $state<number | null>(null);
+  $effect(() => {
+    selected = data.draft.published_version ?? 1;
+  });
+  const activeVersion = $derived(selected ?? draft.published_version ?? 1);
   const isMd = $derived(
-    (data.versions.find((v) => v.version_number === selected)?.source_format ?? "html") === "md",
+    (data.versions.find((v) => v.version_number === activeVersion)?.source_format ?? "html") ===
+      "md",
   );
   // Preview the selected version from the CONTENT origin in a sandboxed iframe.
-  const previewSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${selected}`);
-  const rawSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${selected}/raw`);
+  const previewSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}`);
+  const rawSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}/raw`);
 </script>
 
 <Seo title={`${draft.title || "Untitled"} — agentdraft`} description="Draft version history and preview." path={`/drafts/${draft.id}`} noindex />
@@ -24,7 +34,7 @@
 </p>
 
 <div class="panel panel--accent">
-  <div class="panel__head">preview — v{selected}{isMd ? " (rendered markdown)" : ""}</div>
+  <div class="panel__head">preview — v{activeVersion}{isMd ? " (rendered markdown)" : ""}</div>
   <div class="panel__body">
     <div class="row" style="margin-bottom:.9rem;flex-wrap:wrap">
       <label for="ver" style="margin:0">Version</label>

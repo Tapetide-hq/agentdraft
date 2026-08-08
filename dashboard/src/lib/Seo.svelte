@@ -15,7 +15,10 @@
   let { title, description, path = "/", noindex = false }: Props = $props();
 
   const SITE = "https://app.agentdraft.tapetide.com";
-  const canonical = `${SITE}${path}`;
+  // $derived, not a plain const: `path` is a prop, and a bare template literal would
+  // freeze the canonical URL at the value from first render — so client-side navigation
+  // would emit the WRONG canonical tag for every subsequent page.
+  const canonical = $derived(`${SITE}${path}`);
 </script>
 
 <svelte:head>
