@@ -75,7 +75,18 @@ function securityHeaders(
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",
     "Referrer-Policy": "no-referrer",
-    "Cross-Origin-Resource-Policy": "same-origin",
+    // CORP is a SECOND, INDEPENDENT embedding gate. `same-origin` blocks the dashboard
+    // preview iframe even when frame-ancestors already allows it — fixing only the CSP
+    // left the frame refused with an IDENTICAL blank-frame symptom, which is how the
+    // first fix passed verification while the preview stayed broken in prod.
+    //
+    // `same-site` (not a removal) because both origins are tapetide.com subdomains: the
+    // dashboard can embed a draft, while an arbitrary third-party site still cannot
+    // hotlink one. Dropping CORP altogether would open embedding to everyone.
+    "Cross-Origin-Resource-Policy": "same-site",
+    // COOP governs WINDOW references (window.opener), not framing, so it stays strict.
+    // Loosening it would buy nothing for the preview and weaken isolation of untrusted
+    // content.
     "Cross-Origin-Opener-Policy": "same-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
     ...extra,
