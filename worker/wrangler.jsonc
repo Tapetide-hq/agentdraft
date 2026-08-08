@@ -10,7 +10,11 @@
     // content worker is first deployed and its workers.dev URL is known.
     "CONTENT_BASE_URL": "https://agentdraft.tapetide.com",
     "DASHBOARD_ORIGIN": "https://app.agentdraft.tapetide.com",
-    "GOOGLE_OAUTH_ENABLED": "false"
+    "GOOGLE_OAUTH_ENABLED": "true",
+    // "hosted"      -> Google sign-in is the ONLY way in; API keys can be minted
+    //                  exclusively from the dashboard by a Google-verified session.
+    // "self-hosted" -> API-key paste is also accepted (a self-hoster may have no IdP).
+    "AUTH_MODE": "hosted"
   },
   "d1_databases": [
     {

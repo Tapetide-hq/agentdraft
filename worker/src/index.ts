@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./env.js";
 import type { AuthContext } from "./types.js";
-import { requireAuth, requireScope, requireGoogleIdentity } from "./middleware/auth.js";
+import {
+  requireAuth,
+  requireScope,
+  requireGoogleIdentity,
+  requireHumanSession,
+} from "./middleware/auth.js";
 import { rateLimit } from "./middleware/ratelimit.js";
 import { jsonError } from "./lib/http.js";
 import uploadRoute from "./routes/upload.js";
@@ -47,6 +52,7 @@ app.get("/api/config", (c) =>
   c.json({
     ok: true,
     google_oauth_enabled: c.env.GOOGLE_OAUTH_ENABLED === "true",
+    auth_mode: c.env.AUTH_MODE === "hosted" ? "hosted" : "self-hosted",
     content_base_url: c.env.CONTENT_BASE_URL,
   }),
 );
@@ -93,11 +99,14 @@ app.route("/api/drafts", draftsRoute);
 // from escalating to mint new keys, while allowing a manage-scoped key (or a dashboard
 // session, which carries manage) to administer keys. The dashboard uses a BFF that
 // holds a manage key server-side; /api/session remains a valid alternative integration.
-app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
-app.use("/api/api-keys", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
-// Minting a key is the only operation that creates durable NEW access, so it carries an
-// extra gate: a verified Google identity. Listing and revoking deliberately do NOT —
-// you must always be able to revoke a key, including when your IdP is unavailable.
+// Key management is DASHBOARD-ONLY in hosted mode: requireHumanSession rejects API-key
+// bearer auth outright, so a machine credential can publish but never administer the
+// account. On a self-hosted instance with no IdP these middlewares no-op, keeping that
+// deployment usable.
+app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), requireHumanSession(), rateLimit("read", 1000, 3600));
+app.use("/api/api-keys", requireAuth(), requireScope("manage"), requireHumanSession(), rateLimit("read", 1000, 3600));
+// Minting additionally requires a verified Google identity, and FAILS CLOSED in hosted
+// mode if OAuth is misconfigured rather than silently accepting a key.
 app.post("/api/api-keys", requireGoogleIdentity());
 app.route("/api/api-keys", keysRoute);
 
