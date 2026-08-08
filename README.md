@@ -6,7 +6,7 @@
 
 Open source by **[Tapetide](https://tapetide.com/)** · MIT licensed · runs on Cloudflare's free tier
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [CLI](./docs/cli.md) · [API](./docs/api.md) · [Security model](./SECURITY.md) · [Self-hosting](./docs/self-hosting.md)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [CLI](./docs/cli.md) · [API](./docs/api.md) · [Agent skills](./skills/) · [Security model](./SECURITY.md) · [Self-hosting](./docs/self-hosting.md)
 
 </div>
 
