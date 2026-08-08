@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="agentdraft">
+  <!-- Maskable/app icon: same mark as favicon.svg but with the artwork pulled inside a
+       safe zone, because Android and iOS crop app icons to a circle or squircle. The
+       favicon keeps tighter margins since a browser tab never crops. -->
+  <rect width="32" height="32" fill="#0a0a0a"/>
+  <g fill="#ffffff">
+    <rect x="8" y="8" width="16" height="4"/>
+    <rect x="8" y="15" width="16" height="4"/>
+  </g>
+  <rect x="8" y="22" width="8" height="4" fill="#d6f520"/>
+</svg>

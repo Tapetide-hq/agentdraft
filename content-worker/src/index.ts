@@ -7,6 +7,8 @@
 // Bindings come from `wrangler types` (worker-configuration.d.ts, generated from
 // wrangler.jsonc) rather than being hand-written, so a config change that drops or
 // renames a binding becomes a compile error instead of a runtime crash.
+import { iconResponse } from "./icons.js";
+
 type Env = globalThis.Env;
 
 interface DraftRow {
@@ -108,6 +110,14 @@ export default {
     if (url.pathname === "/health") {
       return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
     }
+
+    // Brand icons. A browser asks the ORIGIN ROOT for /favicon.ico whenever a document
+    // declares no icon of its own, which every uploaded document does — we serve pages
+    // byte-for-byte and must not inject a <link> into user HTML. Answering here gives
+    // every published draft a real tab icon while leaving content untouched.
+    const icon = iconResponse(url.pathname, request.method);
+    if (icon) return icon;
+
     if (!m) return textResponse(404, "Not Found");
 
     const draftId = m[1];

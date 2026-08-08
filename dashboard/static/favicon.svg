@@ -1,1 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#6ea8fe"/><path d="M8 11l3 10 3-7 3 7 3-10" fill="none" stroke="#0b1220" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="agentdraft">
+  <!-- Geometry is deliberately pixel-aligned for a 16px favicon: the viewBox is 32
+       units, so every 2 units = 1 device pixel at 16px. Bar heights (4), gaps (4), and
+       x-offsets (6) are all even, which keeps edges crisp instead of antialiased to mush
+       at the size browsers actually render in a tab. -->
+  <rect width="32" height="32" rx="7" fill="#0a0a0a"/>
+  <g fill="#ffffff">
+    <rect x="6" y="6" width="20" height="4"/>
+    <rect x="6" y="14" width="20" height="4"/>
+  </g>
+  <!-- Half-width accent bar: the shortness is intentional (a draft is an unfinished
+       document), so it must read as deliberate rather than as a clipped full bar. -->
+  <rect x="6" y="22" width="10" height="4" fill="#d6f520"/>
+</svg>

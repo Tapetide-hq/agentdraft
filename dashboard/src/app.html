@@ -2,7 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+    <!-- Icons. Order matters: a browser picks the LAST rel="icon" it understands, so the
+         SVG comes after the .ico and modern browsers get the scalable one while older
+         ones (and Windows shortcuts / RSS readers) fall back to the multi-res .ico. -->
+    <link rel="icon" href="%sveltekit.assets%/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+    <link rel="manifest" href="%sveltekit.assets%/site.webmanifest" />
+    <!-- Matches --bg so mobile browser chrome doesn't flash white against the dark UI. -->
+    <meta name="theme-color" content="#0a0a0a" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     %sveltekit.head%
   </head>
