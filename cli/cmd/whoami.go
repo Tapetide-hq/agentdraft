@@ -26,6 +26,13 @@ var whoamiCmd = &cobra.Command{
 		}
 		fmt.Printf("Auth:    %s\n", me.Via)
 		fmt.Printf("Scopes:  %s\n", strings.Join(me.Scopes, ", "))
+		// Surface the visibility default so a user can see, without guessing, whether
+		// their next `upload` will produce a public or a private link.
+		if me.Account.DefaultDraftPublic {
+			fmt.Printf("New drafts: public\n")
+		} else {
+			fmt.Printf("New drafts: private (only you can read them)\n")
+		}
 		return nil
 	},
 }

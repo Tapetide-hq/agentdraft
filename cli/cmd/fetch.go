@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Tapetide-hq/agentdraft/cli/internal/api"
+	"github.com/Tapetide-hq/agentdraft/cli/internal/auth"
 	"github.com/Tapetide-hq/agentdraft/cli/internal/config"
 )
 
@@ -26,7 +27,16 @@ var fetchCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		client := api.New(cfg.APIURL, "")
+		// Pass the stored key when there is one. Public drafts do not need it, but a
+		// PRIVATE draft answers the content origin with a 302 and the client falls back
+		// to the authenticated API path — which is impossible with an empty key. Missing
+		// credentials are not an error here: fetching a public draft must keep working
+		// for an unauthenticated user.
+		key := ""
+		if creds, err := auth.Load(); err == nil {
+			key = creds.APIKey
+		}
+		client := api.New(cfg.APIURL, key)
 
 		target := args[0]
 		rawURL := resolveFetchURL(target, fetchVersion)
