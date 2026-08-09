@@ -43,9 +43,35 @@ uploaded before.
 --description <text>   Short label
 --title <text>         Override the extracted <title>
 --idempotency-key <k>  Dedupe retries (same key = same version)
+--private              Create it owner-only (overrides the account default)
+--public               Create it public (overrides the account default)
 ```
 Output: public URL, draft id, version number, title. Warnings print to stderr.
 Blocked HTML fails with the server's validation error codes.
+
+`--private` / `--public` apply only when the draft is CREATED. Re-uploading to an existing
+draft never changes its visibility — silently flipping a link you already shared would be a
+nasty surprise. Use `agentdraft visibility` for that.
+
+### `agentdraft visibility <public|private> [draft-id|url|file]`
+Change who can read a draft. The URL never changes.
+```
+--all       Apply to EVERY existing draft in the account
+--default   Set the default for NEW drafts (existing drafts untouched)
+```
+The target accepts a draft id, a full content URL, or a local file path you have uploaded
+before (resolved through the same `drafts.json` mapping `upload` uses).
+
+```bash
+agentdraft visibility private plan.md        # the draft this file publishes to
+agentdraft visibility public  a1b2c3d4e5f6   # by id
+agentdraft visibility private --default      # only affects NEW drafts
+agentdraft visibility public  --all          # every existing draft
+```
+
+A private draft's link still works **for you**: it redirects through the dashboard, which
+verifies you own it. Anyone else gets a sign-in page. `--all` reports how many drafts
+actually changed, so a no-op says so instead of claiming success.
 
 ### `agentdraft fetch <url|draft-id>`
 Download served HTML.
@@ -53,6 +79,11 @@ Download served HTML.
 -o, --output <file>    Write to a file instead of stdout
 --version <n>          Fetch a specific version
 ```
+Works on PRIVATE drafts too, provided you own them: the content origin answers with a
+redirect, and the CLI retries through the authenticated API rather than following it. That
+matters because following the redirect would write the dashboard's HTML **login page** to
+your output file and exit 0 — a silent wrong-content success. With no stored credentials
+the command exits 1 and writes nothing.
 
 ### `agentdraft list`
 List your drafts.

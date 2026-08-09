@@ -111,6 +111,26 @@ GET    /api/drafts/:id          Metadata + version list
 DELETE /api/drafts/:id          Soft-delete
 ```
 
+### Visibility  *(scope: upload)*
+```
+PATCH /api/drafts/:id/visibility     { "public": bool }   one draft
+POST  /api/drafts/visibility/bulk    { "public": bool }   EVERY draft in the account
+PATCH /api/me/settings               { "default_draft_public": bool }
+GET   /api/drafts/:id/content        owner-only bytes (?v=<n>, ?raw=1)
+```
+A draft is public by default. `PATCH /api/me/settings` changes the default for **new
+drafts only** — existing drafts are never touched by it, because silently flipping links
+already shared with reviewers is the one behaviour a preference must not have. The bulk
+endpoint is the explicit opt-in and returns `changed`, the number of rows it actually
+modified.
+
+A non-owner gets `404`, not `403`, on every one of these: whether a draft exists is not
+disclosed to someone who cannot read it.
+
+`GET /api/drafts/:id/content` exists because the content origin is cookie-free and cannot
+authorize anyone (see below). It streams the document with the same hardening headers plus
+`Cache-Control: private, no-store`.
+
 ### Serving  *(no auth, content origin)*
 ```
 GET /d/:id            Latest version
@@ -120,7 +140,20 @@ GET /d/:id/v/:n/raw   Alias
 ```
 Response headers include a strict CSP, `X-Robots-Tag: noindex`,
 `Cross-Origin-Resource-Policy`, `X-AgentDraft-Draft-Id`, `X-AgentDraft-Version`, and an `ETag`
-of the content hash. Disabled drafts return 451; private drafts 403; missing 404.
+of the content hash. Disabled drafts return 451; missing 404.
+
+**Private drafts `302` to the dashboard**, they are never served here. This origin serves
+attacker-controlled HTML, so a session must never be readable on it — which means it
+cannot authorize a viewer. It redirects to `<dashboard>/private/d/:id…`, where the session
+lives; the dashboard verifies ownership and streams the same bytes. The shared URL is
+unchanged, so an owner just opens the link and sees the document, while anyone else lands
+on sign-in and is returned to that exact draft afterwards. The redirect carries
+`Cache-Control: private, no-store` and is a `302`, never a `301`, because visibility is
+mutable and a permanent redirect would be cached past a later change.
+
+`Cross-Origin-Resource-Policy` is `same-site`, not `same-origin`: CORP is a second
+embedding gate independent of `frame-ancestors`, and `same-origin` blocks the dashboard's
+own preview iframe while producing an identical blank frame.
 
 **Conditional requests** are supported: send `If-None-Match: <etag>` to get a `304 Not
 Modified` with no body (handles `*`, `W/` weak tags, and comma-separated lists). This is

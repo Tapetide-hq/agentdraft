@@ -110,6 +110,26 @@ The CLI records which draft a local file maps to, so re-running `upload` on the 
 updates the same URL instead of littering new ones. Git branch, commit SHA and dirty
 state are captured automatically when you publish from inside a repository.
 
+### Public or private links
+
+Drafts are public by default — anyone with the URL reads them, no sign-in. Flip one to
+private and the URL is unchanged, but only you can open it:
+
+```bash
+agentdraft upload plan.md --private       # publish it owner-only
+agentdraft visibility private plan.md     # flip an existing draft
+agentdraft visibility private --default   # default for NEW drafts
+agentdraft visibility public --all        # every existing draft
+```
+
+A private link still works for you: it routes through the dashboard, which verifies you own
+the draft. Anyone else lands on sign-in and is returned to that exact document afterwards.
+The account default and a per-draft toggle are also in the dashboard under **Privacy**.
+
+Changing the default affects **new drafts only** — links you already shared with reviewers
+are never silently privatised. `--all` is the explicit opt-in and reports how many drafts
+actually changed.
+
 ### Security model for untrusted HTML
 
 Uploaded documents are treated as hostile, because they are:

@@ -142,6 +142,46 @@ KV-backed fixed-window counters, keyed on the API key (or IP for unauthenticated
 uploads 100/hour, reads 1000/hour. Fixed windows are coarse but adequate for abuse
 prevention on the free tier without Durable Objects.
 
+## Draft visibility (private drafts)
+
+A draft is `public` (anyone with the URL) or `private` (owner only). Public is the default.
+
+**Entropy is not the control.** Draft ids are 22 chars of base36 (~113 bits; legacy ids are
+12 chars / ~62 bits and keep working). Even 62 bits was not enumerable in practice —
+roughly 7.5 years to a first hit at 100k req/s against 100k drafts, before rate limiting.
+The real exposure was never guessing: it was that URLs **leak** (chat, PR comments, CI
+logs, `Referer` headers) and, once leaked, granted permanent unrevocable read. Access
+control fixes that; entropy does not. Treat the id length as defence in depth only.
+
+**How a private draft is served.** The content origin is cookie-free by design, because it
+serves attacker-controlled HTML — a session readable there would be reachable by a CSP
+bypass in a published document. It therefore cannot authorize a viewer, and does not try:
+it `302`s to the dashboard, which holds the session, verifies ownership, and streams the
+bytes on its own origin under the same CSP (including a `sandbox` directive in the header,
+so a direct navigation is sandboxed even with no embedding iframe) plus
+`Cache-Control: private, no-store`.
+
+That means a private draft renders on the **dashboard** origin, which is the property the
+two-origin split otherwise avoids. It is accepted deliberately and mitigated by the
+header-level `sandbox` + `script-src 'none'`; public drafts keep the stricter isolated path
+unchanged.
+
+**Existence is not disclosed.** A non-owner receives `404` on every visibility and content
+endpoint, never `403`. The content origin's `302` does reveal that *some* draft exists at a
+guessed id — an existence oracle that is not exploitable at 113 bits, and collapsing it
+into `404` would make an owner's typo indistinguishable from someone else's private draft.
+
+**Changing the account default is not retroactive.** It applies to new drafts only.
+Silently privatising links already handed to reviewers is the one behaviour a preference
+must not have, so existing drafts change only through an explicit bulk action that reports
+how many rows it touched.
+
+**Return-to after sign-in is allow-listed.** A signed-out viewer of a private draft is sent
+to `/login?next=…` and returned to that document. `next` is validated against a path
+allow-list (`safeNext`), not merely checked for a leading `/`: scheme-relative `//evil`,
+backslash, percent-encoded and control-character variants are all rejected, or the sign-in
+page becomes an open redirect wearing our domain.
+
 ## What v1 does NOT include
 
 - **No anonymous uploads.** Publishing requires an owner-tied, revocable key. Public
