@@ -19,6 +19,10 @@
   // Preview the selected version from the CONTENT origin in a sandboxed iframe.
   const previewSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}`);
   const rawSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}/raw`);
+
+  // Read visibility from the SERVER value on every render, never from local state: the
+  // draft may have been flipped from the CLI or another tab since this page loaded.
+  const isPublic = $derived(draft.is_public !== 0);
 </script>
 
 <Seo title={`${draft.title || "Untitled"} — agentdraft`} description="Draft version history and preview." path={`/drafts/${draft.id}`} noindex />
@@ -32,6 +36,32 @@
 <p class="mono subtle">
   {draft.id}{#if draft.description} — {draft.description}{/if}
 </p>
+
+<!-- VISIBILITY. Placed directly under the title because it changes who can read the
+     document, which is the single most consequential property on this page. -->
+<div class="panel" style="margin-bottom:1.25rem">
+  <div class="panel__head">visibility — {isPublic ? "public" : "private"}</div>
+  <div class="panel__body">
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+      <p class="subtle" style="margin:0;max-width:34rem;font-size:13px">
+        {#if isPublic}
+          Anyone with the link can read this draft. The link works without signing in.
+        {:else}
+          Only you can read this draft. The link is unchanged — anyone else who opens it
+          gets a sign-in page.
+        {/if}
+      </p>
+      <form method="POST" action="?/visibility">
+        <!-- The DESIRED state is submitted, not a toggle: a toggle derived from stale
+             page data flips the wrong way if the value changed elsewhere meanwhile. -->
+        <input type="hidden" name="public" value={isPublic ? "false" : "true"} />
+        <button class="btn btn--ghost" type="submit">
+          {isPublic ? "Make private" : "Make public"}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
 
 <div class="panel panel--accent">
   <div class="panel__head">preview — v{activeVersion}{isMd ? " (rendered markdown)" : ""}</div>

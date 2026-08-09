@@ -25,7 +25,8 @@
     {#if data.authed}
       <a href="/dashboard" class:active={path === "/dashboard"}>Drafts</a>
       <a href="/projects" class:active={path.startsWith("/projects")}>Projects</a>
-      <a href="/settings/keys" class:active={path.startsWith("/settings")}>Keys</a>
+      <a href="/settings/keys" class:active={path.startsWith("/settings/keys")}>Keys</a>
+      <a href="/settings/privacy" class:active={path.startsWith("/settings/privacy")}>Privacy</a>
       <span class="spacer"></span>
       <form method="POST" action="/logout">
         <button class="btn btn--ghost" type="submit">Sign out</button>
