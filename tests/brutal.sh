@@ -21,6 +21,14 @@ KEY="${KEY:-}"
 
 if [ -z "$KEY" ]; then echo "FATAL: set KEY to a valid ad_ API key" >&2; exit 2; fi
 
+# Detect the deployment's auth mode. In "hosted" mode, API-key MANAGEMENT
+# (/api/api-keys) additionally requires a Google-signed-in dashboard session
+# (requireHumanSession) — so a bearer key, even a manage-scoped one, cannot mint
+# or list keys. The privilege-escalation section adapts to this: which is the
+# correct contract to assert depends on the mode, and asserting the self-hosted
+# contract against a hosted deployment produces phantom failures.
+AUTH_MODE=$(curl -s "$API/api/config" | python3 -c "import sys,json;print((json.load(sys.stdin) or {}).get('auth_mode','') or 'self-hosted')" 2>/dev/null || echo "self-hosted")
+
 PASS=0; FAIL=0; FAILED_NAMES=()
 RED=$'\033[31m'; GREEN=$'\033[32m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; OFF=$'\033[0m'
 
@@ -80,7 +88,7 @@ print(json.dumps(o))
 upload_html() { upload_raw "$(mkjson "$1" "${2:-}")"; }
 
 printf "${BOLD}AgentDraft brutal suite${OFF}\n"
-printf "  API=%s\n  CONTENT=%s\n" "$API" "$CONTENT"
+printf "  API=%s\n  CONTENT=%s\n  AUTH_MODE=%s\n" "$API" "$CONTENT" "$AUTH_MODE"
 
 # This suite performs ~70 uploads. The API rate-limits uploads to 100/hour PER KEY, so
 # two runs inside one hour will exhaust the budget and every later assertion fails with
@@ -246,26 +254,43 @@ assert_eq "valid key /api/me -> 200"    200 "$(code "$API/api/me" -H "authorizat
 assert_eq "bootstrap wrong secret->401" 401 "$(code -X POST "$API/api/bootstrap" -H 'x-bootstrap-secret: definitely-not-the-secret' -d '{}')"
 assert_eq "bootstrap no secret -> 401"  401 "$(code -X POST "$API/api/bootstrap" -d '{}')"
 
-sect "6. Privilege escalation — an upload/read key must NOT mint keys"
-LK=$(body -X POST "$API/api/api-keys" -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
-      -d '{"name":"brutal-limited","scopes":["upload","read"]}' | jqf api_key)
-if [ -n "$LK" ]; then
-  ok "created a limited (upload,read) key"
-  assert_eq "limited key cannot LIST keys -> 403"   403 "$(code "$API/api/api-keys" -H "authorization: Bearer $LK")"
-  assert_eq "limited key cannot MINT keys -> 403"   403 "$(code -X POST "$API/api/api-keys" -H "authorization: Bearer $LK" -H 'content-type: application/json' -d '{"name":"escalated","scopes":["manage"]}')"
-  assert_eq "limited key CAN upload -> 201"         201 "$(code -X POST "$API/api/upload" -H "authorization: Bearer $LK" -H 'content-type: application/json' -d "$(mkjson '<!DOCTYPE html><html><head><title>lim</title></head><body>x</body></html>')")"
-  # revoke it, then prove it is dead
-  LKID=$(body "$API/api/api-keys" -H "authorization: Bearer $KEY" | python3 -c "
+sect "6. Privilege escalation — key management is gated"
+if [ "$AUTH_MODE" = "hosted" ]; then
+  # HOSTED: /api/api-keys requires a Google-signed-in dashboard session
+  # (requireHumanSession). A bearer API key — whatever its scopes — must not be
+  # able to list or mint keys. That is the whole point of splitting machine
+  # credentials from the human account: a key leaked from CI or a dotfile can
+  # publish, but can never escalate to take over the account. So $KEY (a machine
+  # key) is exactly the credential that MUST be refused here.
+  ok "hosted mode: key management requires a human Google session"
+  assert_eq "machine key cannot LIST keys -> 403" 403 "$(code "$API/api/api-keys" -H "authorization: Bearer $KEY")"
+  assert_eq "machine key cannot MINT keys -> 403" 403 "$(code -X POST "$API/api/api-keys" -H "authorization: Bearer $KEY" -H 'content-type: application/json' -d '{"name":"escalated","scopes":["manage"]}')"
+  # And the machine key must still be able to do its actual job.
+  assert_eq "machine key CAN upload -> 201"       201 "$(code -X POST "$API/api/upload" -H "authorization: Bearer $KEY" -H 'content-type: application/json' -d "$(mkjson '<!DOCTYPE html><html><head><title>mk</title></head><body>x</body></html>')")"
+else
+  # SELF-HOSTED: no IdP, so a manage-scoped key is the account credential and CAN
+  # manage keys. Prove a NON-manage key still cannot, mint a limited key from the
+  # manage key, and prove revocation kills it. Requires KEY to have "manage".
+  LK=$(body -X POST "$API/api/api-keys" -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
+        -d '{"name":"brutal-limited","scopes":["upload","read"]}' | jqf api_key)
+  if [ -n "$LK" ]; then
+    ok "created a limited (upload,read) key"
+    assert_eq "limited key cannot LIST keys -> 403"   403 "$(code "$API/api/api-keys" -H "authorization: Bearer $LK")"
+    assert_eq "limited key cannot MINT keys -> 403"   403 "$(code -X POST "$API/api/api-keys" -H "authorization: Bearer $LK" -H 'content-type: application/json' -d '{"name":"escalated","scopes":["manage"]}')"
+    assert_eq "limited key CAN upload -> 201"         201 "$(code -X POST "$API/api/upload" -H "authorization: Bearer $LK" -H 'content-type: application/json' -d "$(mkjson '<!DOCTYPE html><html><head><title>lim</title></head><body>x</body></html>')")"
+    # revoke it, then prove it is dead
+    LKID=$(body "$API/api/api-keys" -H "authorization: Bearer $KEY" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 for k in d.get('keys',[]):
     if k['name']=='brutal-limited' and not k.get('revoked_at'): print(k['id']); break
 ")
-  if [ -n "$LKID" ]; then
-    curl -s -o /dev/null -X DELETE "$API/api/api-keys/$LKID" -H "authorization: Bearer $KEY"
-    assert_eq "revoked key -> 401"  401 "$(code "$API/api/me" -H "authorization: Bearer $LK")"
-  else bad "find limited key id" "not found"; fi
-else bad "create limited key" "no api_key returned"; fi
+    if [ -n "$LKID" ]; then
+      curl -s -o /dev/null -X DELETE "$API/api/api-keys/$LKID" -H "authorization: Bearer $KEY"
+      assert_eq "revoked key -> 401"  401 "$(code "$API/api/me" -H "authorization: Bearer $LK")"
+    else bad "find limited key id" "not found"; fi
+  else bad "create limited key (needs manage scope in self-hosted mode)" "no api_key returned"; fi
+fi
 
 # ------------------------------------------------------------ cross-tenant
 sect "7. Cross-tenant / IDOR"
