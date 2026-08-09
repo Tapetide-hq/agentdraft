@@ -5,6 +5,9 @@ export interface Account {
   avatar_url: string | null;
   google_sub: string | null;
   is_owner: number;
+  // Default visibility applied to NEWLY created drafts (1 = public). Existing drafts are
+  // never affected by changing this — see migration 0004.
+  default_draft_public: number;
   created_at: string;
   updated_at: string;
 }

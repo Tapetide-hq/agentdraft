@@ -19,6 +19,17 @@ session.post("/", async (c) => {
   const body = parsedBody.body;
   const badField = badStringField(c, body, ["api_key"]);
   if (badField) return badField;
+  // HOSTED mode: Google is the only way in. Exchanging an API key for a dashboard
+  // session here would be a second door bypassing Google entirely.
+  if (c.env.AUTH_MODE === "hosted") {
+    return jsonError(
+      c,
+      403,
+      "E_GOOGLE_SIGNIN_REQUIRED",
+      "Sign in with Google. API-key sign-in is disabled on this deployment.",
+    );
+  }
+
   const apiKey = typeof body.api_key === "string" ? body.api_key.trim() : "";
   if (!apiKey.startsWith("ad_")) {
     return jsonError(c, 400, "E_BAD_KEY", "Provide a valid ad_ API key.");

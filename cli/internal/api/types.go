@@ -15,6 +15,11 @@ type UploadRequest struct {
 	DraftID     string          `json:"draft_id,omitempty"`
 	Title       string          `json:"title,omitempty"`
 	Description string          `json:"description,omitempty"`
+	// Public overrides the account default for a NEW draft. A pointer so "not
+	// specified" is distinguishable from "explicitly false" — with a plain bool,
+	// omitempty would drop `false` and silently publish a draft the user asked to keep
+	// private, which is the one failure mode this field must not have.
+	Public      *bool           `json:"public,omitempty"`
 	Metadata    *UploadMetadata `json:"metadata,omitempty"`
 }
 
@@ -43,6 +48,8 @@ type Account struct {
 	Name    string `json:"name"`
 	Email   string `json:"email"`
 	IsOwner bool   `json:"is_owner"`
+	// DefaultDraftPublic is the account-level default applied to NEWLY created drafts.
+	DefaultDraftPublic bool `json:"default_draft_public"`
 }
 
 type MeResponse struct {
@@ -60,6 +67,30 @@ type Draft struct {
 	PublishedVersion int    `json:"published_version"`
 	PublicURL        string `json:"public_url"`
 	UpdatedAt        string `json:"updated_at"`
+	// IsPublic is an int in D1 (0/1), so it decodes as a number here rather than a bool.
+	IsPublic int `json:"is_public"`
+}
+
+// VisibilityResponse is returned by the per-draft visibility endpoint.
+type VisibilityResponse struct {
+	OK        bool   `json:"ok"`
+	ID        string `json:"id"`
+	Public    bool   `json:"public"`
+	PublicURL string `json:"public_url"`
+}
+
+// BulkVisibilityResponse reports how many drafts a bulk change actually touched, so the
+// CLI can tell the user the real number instead of claiming success blindly.
+type BulkVisibilityResponse struct {
+	OK      bool `json:"ok"`
+	Public  bool `json:"public"`
+	Changed int  `json:"changed"`
+}
+
+// SettingsResponse is returned by the account-settings endpoint.
+type SettingsResponse struct {
+	OK                 bool `json:"ok"`
+	DefaultDraftPublic bool `json:"default_draft_public"`
 }
 
 type DraftsResponse struct {

@@ -24,6 +24,9 @@ interface Draft {
   published_version: number | null;
   public_url: string;
   project_id: string | null;
+  // 0/1 from D1, not a boolean.
+  is_public: number;
+  visibility_changed_at: string | null;
 }
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -45,5 +48,24 @@ export const actions: Actions = {
     const res = await apiFetch(ctx, `/api/drafts/${params.id}`, { method: "DELETE" });
     if (!res.ok) throw error(res.status, "Failed to delete draft.");
     throw redirect(303, "/dashboard");
+  },
+
+  // Flip THIS draft between public and private.
+  //
+  // The desired state is sent explicitly rather than toggled server-side from the
+  // current value: a toggle computed from stale page data flips the wrong way when two
+  // tabs are open, or when the value changed via the CLI since this page loaded.
+  visibility: async ({ locals, params, request }) => {
+    const ctx = requireKey(locals);
+    const form = await request.formData();
+    const wantPublic = form.get("public") === "true";
+    const res = await apiFetch(ctx, `/api/drafts/${params.id}/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ public: wantPublic }),
+    });
+    if (!res.ok) throw error(res.status, "Failed to change visibility.");
+    // No redirect: SvelteKit re-runs `load` after an action, so the page re-reads the
+    // authoritative value from the API instead of trusting what we just sent.
+    return { visibilityChanged: true, nowPublic: wantPublic };
   },
 };

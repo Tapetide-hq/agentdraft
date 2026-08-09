@@ -9,8 +9,18 @@ export function newId(prefix: string, len = 16): string {
 }
 
 // Draft IDs have no prefix and appear directly in the public URL.
+//
+// 22 chars of base36 is ~113 bits. The previous 12 chars was ~62 bits, which was already
+// not enumerable in practice (at 100k req/s against 100k drafts an attacker averages
+// ~7.5 years to a first hit, before any rate limiting). This is therefore defence in
+// depth, NOT the privacy mechanism — a leaked URL is readable at any entropy, so real
+// access control (is_public + owner check) is what actually makes a draft private.
+//
+// EXISTING 12-CHAR IDS KEEP WORKING and are NOT migrated: people have already shared
+// those links. The content worker's route regex accepts 6..32 chars, so old and new
+// coexist permanently. Do not "clean this up" by rewriting old ids.
 export function newDraftId(): string {
-  return gen().slice(0, 12);
+  return gen().slice(0, 22);
 }
 
 // A full API key: "ad_" + 40 chars of high-entropy base36. The visible prefix used

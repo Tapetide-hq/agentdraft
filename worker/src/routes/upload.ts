@@ -146,10 +146,25 @@ upload.post("/", async (c) => {
 
   if (!draft) {
     const id = newDraftId();
-    await c.env.DB.prepare(
-      "INSERT INTO drafts (id, project_id, account_id, title, description, last_allocated_version) VALUES (?, ?, ?, ?, ?, 0)",
+    // Visibility for a NEW draft comes from the account default, unless this request
+    // names one explicitly. Read it per-upload rather than caching: the user may flip
+    // the default in the dashboard between two agent uploads, and the next upload must
+    // honour the CURRENT setting.
+    //
+    // Explicit beats default so a single upload can opt out either way
+    // (`--private` / `--public`) without touching the account preference.
+    const acct = await c.env.DB.prepare(
+      "SELECT default_draft_public FROM accounts WHERE id = ?",
     )
-      .bind(id, projectId, auth.account.id, title, description)
+      .bind(auth.account.id)
+      .first<{ default_draft_public: number }>();
+    const defaultPublic = acct?.default_draft_public ?? 1;
+    const isPublic =
+      typeof body.public === "boolean" ? (body.public ? 1 : 0) : defaultPublic;
+    await c.env.DB.prepare(
+      "INSERT INTO drafts (id, project_id, account_id, title, description, last_allocated_version, is_public, visibility_changed_at) VALUES (?, ?, ?, ?, ?, 0, ?, CASE WHEN ? = 0 THEN datetime('now') ELSE NULL END)",
+    )
+      .bind(id, projectId, auth.account.id, title, description, isPublic, isPublic)
       .run();
     draft = await c.env.DB.prepare("SELECT * FROM drafts WHERE id = ?")
       .bind(id)

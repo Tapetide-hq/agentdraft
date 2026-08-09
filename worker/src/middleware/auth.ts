@@ -120,12 +120,29 @@ export function requireSession() {
 // plainly in SECURITY.md rather than implied to be absolute.
 export function requireGoogleIdentity() {
   return async (c: Context<{ Bindings: Env; Variables: { auth: AuthContext } }>, next: Next) => {
+    const hosted = c.env.AUTH_MODE === "hosted";
     const oauthOn =
       c.env.GOOGLE_OAUTH_ENABLED === "true" && !!c.env.GOOGLE_CLIENT_ID && !!c.env.GOOGLE_CLIENT_SECRET;
-    if (!oauthOn) {
+
+    // HOSTED mode fails CLOSED. If OAuth is somehow misconfigured on the hosted
+    // deployment we must refuse to mint keys, not silently fall back to accepting an
+    // API key — a config regression must not quietly remove the identity requirement.
+    if (hosted && !oauthOn) {
+      return jsonError(
+        c,
+        503,
+        "E_OAUTH_MISCONFIGURED",
+        "Google sign-in is required but not configured. Key creation is disabled.",
+      );
+    }
+
+    // SELF-HOSTED without an IdP: the gate is disabled by design, otherwise the
+    // instance could never mint its first key and would be unusable.
+    if (!hosted && !oauthOn) {
       await next();
       return;
     }
+
     const auth = c.get("auth");
     if (!auth) return jsonError(c, 401, "E_UNAUTHENTICATED", "Not authenticated.");
     if (auth.authMethod !== "google") {
@@ -133,7 +150,32 @@ export function requireGoogleIdentity() {
         c,
         403,
         "E_GOOGLE_SIGNIN_REQUIRED",
-        "Creating API keys requires signing in with Google.",
+        "API keys can only be created from the dashboard after signing in with Google.",
+      );
+    }
+    await next();
+  };
+}
+
+// HOSTED mode: reject API-key bearer auth on DASHBOARD/management surfaces.
+//
+// An API key is a machine credential. In hosted mode humans arrive via Google, so a
+// key must not be usable to browse or administer the account — that keeps a leaked
+// key confined to publishing, which is all a machine needs.
+export function requireHumanSession() {
+  return async (c: Context<{ Bindings: Env; Variables: { auth: AuthContext } }>, next: Next) => {
+    if (c.env.AUTH_MODE !== "hosted") {
+      await next();
+      return;
+    }
+    const auth = c.get("auth");
+    if (!auth) return jsonError(c, 401, "E_UNAUTHENTICATED", "Not authenticated.");
+    if (auth.via !== "session" || auth.authMethod !== "google") {
+      return jsonError(
+        c,
+        403,
+        "E_GOOGLE_SIGNIN_REQUIRED",
+        "This endpoint requires a Google-signed-in dashboard session.",
       );
     }
     await next();

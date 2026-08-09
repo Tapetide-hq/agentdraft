@@ -24,6 +24,8 @@ var (
 	upDescription string
 	upTitle       string
 	upIdempotency string
+	upPrivate     bool
+	upPublic      bool
 )
 
 var uploadCmd = &cobra.Command{
@@ -97,6 +99,21 @@ var uploadCmd = &cobra.Command{
 			},
 		}
 
+		// Visibility override for a NEW draft. Sent as a POINTER so "flag absent" is
+		// distinguishable from "explicitly public": omitting it lets the account default
+		// apply, which is what an agent with no opinion should get.
+		//
+		// Note this only affects draft CREATION. Re-uploading to an existing draft never
+		// changes its visibility — silently flipping a shared link on the next `upload`
+		// would be a nasty surprise. Use `agentdraft visibility` for that.
+		if upPrivate {
+			v := false
+			req.Public = &v
+		} else if upPublic {
+			v := true
+			req.Public = &v
+		}
+
 		resp, err := client.Upload(req, upIdempotency)
 		if err != nil {
 			return err
@@ -164,5 +181,10 @@ func init() {
 	uploadCmd.Flags().StringVar(&upDescription, "description", "", "short label for the draft")
 	uploadCmd.Flags().StringVar(&upTitle, "title", "", "override the extracted title")
 	uploadCmd.Flags().StringVar(&upIdempotency, "idempotency-key", "", "dedupe retries")
+	uploadCmd.Flags().BoolVar(&upPrivate, "private", false, "create the draft private (owner-only); overrides the account default")
+	uploadCmd.Flags().BoolVar(&upPublic, "public", false, "create the draft public; overrides the account default")
+	// Mutually exclusive: asking for both is a mistake worth surfacing rather than
+	// silently letting one win.
+	uploadCmd.MarkFlagsMutuallyExclusive("private", "public")
 	rootCmd.AddCommand(uploadCmd)
 }

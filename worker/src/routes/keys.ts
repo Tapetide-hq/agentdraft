@@ -11,7 +11,7 @@ const keys = new Hono<{ Bindings: Env; Variables: { auth: AuthContext } }>();
 keys.get("/", async (c) => {
   const auth = c.get("auth");
   const rows = await c.env.DB.prepare(
-    "SELECT id, name, key_prefix, scopes, last_used_at, revoked_at, expires_at, created_at FROM api_keys WHERE account_id = ? ORDER BY created_at DESC",
+    "SELECT id, name, key_prefix, scopes, last_used_at, revoked_at, expires_at, created_via, created_at FROM api_keys WHERE account_id = ? ORDER BY created_at DESC",
   )
     .bind(auth.account.id)
     .all();
@@ -35,10 +35,13 @@ keys.post("/", async (c) => {
   const keyId = newId("key_");
   const { full, prefix } = newApiKey();
   const hash = await hashApiKey(full, c.env.API_KEY_PEPPER ?? "");
+  // created_via records HOW the key was minted, so provenance is auditable later:
+  // "google-dashboard" for a Google-verified human session, otherwise the auth method.
+  const createdVia = auth.authMethod === "google" ? "google-dashboard" : `${auth.via}:${auth.authMethod}`;
   await c.env.DB.prepare(
-    "INSERT INTO api_keys (id, account_id, name, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO api_keys (id, account_id, name, key_prefix, key_hash, scopes, created_via) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
-    .bind(keyId, auth.account.id, name, prefix, hash, scopes.join(","))
+    .bind(keyId, auth.account.id, name, prefix, hash, scopes.join(","), createdVia)
     .run();
   return c.json(
     { ok: true, key_id: keyId, name, key_prefix: prefix, scopes, api_key: full, note: "Shown once." },

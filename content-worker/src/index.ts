@@ -7,6 +7,8 @@
 // Bindings come from `wrangler types` (worker-configuration.d.ts, generated from
 // wrangler.jsonc) rather than being hand-written, so a config change that drops or
 // renames a binding becomes a compile error instead of a runtime crash.
+import { iconResponse } from "./icons.js";
+
 type Env = globalThis.Env;
 
 interface DraftRow {
@@ -37,27 +39,54 @@ function renderedKeyFor(sourceKey: string): string {
 // Defense-in-depth CSP. script-src 'none' means even if validation somehow let a
 // script through, the browser won't execute it. style-src 'unsafe-inline' is required
 // because the product's whole point is self-contained styled documents.
-const CSP = [
-  "default-src 'none'",
-  "img-src https: data:",
-  "style-src 'unsafe-inline'",
-  "font-src https: data:",
-  "media-src https:",
-  "script-src 'none'",
-  "connect-src 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'self'", // allow dashboard preview iframe on the api origin
-  "base-uri 'none'",
-].join("; ");
+//
+// frame-ancestors is built PER REQUEST because it must name the dashboard origin
+// explicitly. It previously read `frame-ancestors 'self'` with a comment claiming that
+// allowed the dashboard preview iframe — it does not. 'self' is THIS origin (the content
+// origin); the dashboard is a DIFFERENT origin, so the browser refused the frame and the
+// preview rendered as Chrome's blank subframe error page. The comment asserted the
+// opposite of the behaviour, which is why it survived review.
+function buildCSP(dashboardOrigin: string | undefined): string {
+  // Fall back to 'none' rather than 'self' when unset: if the embedding origin is not
+  // configured, refusing all framing is the safe default. 'self' would be a lie either
+  // way, and a permissive fallback on an untrusted-content origin is the wrong risk.
+  const frameAncestors = dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
+  return [
+    "default-src 'none'",
+    "img-src https: data:",
+    "style-src 'unsafe-inline'",
+    "font-src https: data:",
+    "media-src https:",
+    "script-src 'none'",
+    "connect-src 'none'",
+    "form-action 'none'",
+    frameAncestors,
+    "base-uri 'none'",
+  ].join("; ");
+}
 
-function securityHeaders(extra: Record<string, string> = {}): Record<string, string> {
+function securityHeaders(
+  dashboardOrigin: string | undefined,
+  extra: Record<string, string> = {},
+): Record<string, string> {
   return {
     "Content-Type": "text/html; charset=utf-8",
-    "Content-Security-Policy": CSP,
+    "Content-Security-Policy": buildCSP(dashboardOrigin),
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",
     "Referrer-Policy": "no-referrer",
-    "Cross-Origin-Resource-Policy": "same-origin",
+    // CORP is a SECOND, INDEPENDENT embedding gate. `same-origin` blocks the dashboard
+    // preview iframe even when frame-ancestors already allows it — fixing only the CSP
+    // left the frame refused with an IDENTICAL blank-frame symptom, which is how the
+    // first fix passed verification while the preview stayed broken in prod.
+    //
+    // `same-site` (not a removal) because both origins are tapetide.com subdomains: the
+    // dashboard can embed a draft, while an arbitrary third-party site still cannot
+    // hotlink one. Dropping CORP altogether would open embedding to everyone.
+    "Cross-Origin-Resource-Policy": "same-site",
+    // COOP governs WINDOW references (window.opener), not framing, so it stays strict.
+    // Loosening it would buy nothing for the preview and weaken isolation of untrusted
+    // content.
     "Cross-Origin-Opener-Policy": "same-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
     ...extra,
@@ -108,6 +137,14 @@ export default {
     if (url.pathname === "/health") {
       return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
     }
+
+    // Brand icons. A browser asks the ORIGIN ROOT for /favicon.ico whenever a document
+    // declares no icon of its own, which every uploaded document does — we serve pages
+    // byte-for-byte and must not inject a <link> into user HTML. Answering here gives
+    // every published draft a real tab icon while leaving content untouched.
+    const icon = iconResponse(url.pathname, request.method);
+    if (icon) return icon;
+
     if (!m) return textResponse(404, "Not Found");
 
     const draftId = m[1];
@@ -134,7 +171,48 @@ export default {
       .first<DraftRow>();
 
     if (!draft || draft.deleted_at) return textResponse(404, "Not Found");
-    if (!draft.is_public) return textResponse(403, "This draft is not public.");
+
+    // PRIVATE DRAFT -> hand off to the dashboard, never serve it here.
+    //
+    // This worker is cookie-free BY DESIGN: it serves attacker-controlled HTML, so a
+    // session must never be readable on this origin. It therefore cannot authorize a
+    // viewer itself. Instead it redirects to the dashboard, which holds the session,
+    // verifies OWNERSHIP, and streams the same bytes from its own origin.
+    //
+    // The user experience is "the same link just opens when I'm signed in": the shared
+    // URL is unchanged, and the redirect is invisible in normal browsing. A signed-out
+    // viewer lands on sign-in and returns to this exact draft afterwards.
+    //
+    // 302 not 301: visibility is a mutable property. A permanent redirect would be
+    // cached by browsers and intermediaries, so a draft later made public again would
+    // keep bouncing to the dashboard from stale caches.
+    //
+    // Known and accepted: this distinguishes "private" from "nonexistent" to anyone
+    // probing ids, i.e. an existence oracle. With 113-bit ids (and 62-bit legacy ids)
+    // guessing an id is infeasible, so the oracle is not exploitable, and collapsing
+    // private into 404 would make a genuine typo indistinguishable from someone else's
+    // private draft — worse for users, no real gain.
+    if (!draft.is_public) {
+      const dash = env.DASHBOARD_ORIGIN?.replace(/\/$/, "");
+      if (!dash) {
+        // Fail CLOSED. With no dashboard configured there is nowhere to authorize the
+        // viewer, and serving the bytes would publish a draft the owner marked private.
+        return textResponse(403, "This draft is private.");
+      }
+      // Preserve the full path so /v/2 and /raw survive the hand-off and the viewer
+      // lands on the exact representation they asked for.
+      const target = `${dash}/private${url.pathname}${url.search}`;
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: target,
+          // A private draft must never be cached by a shared cache: the next viewer
+          // may be a different principal with different rights.
+          "Cache-Control": "private, no-store",
+          "X-Robots-Tag": "noindex, nofollow",
+        },
+      });
+    }
     if (draft.disabled_at) {
       return textResponse(451, `This document has been disabled. ${draft.disabled_reason ?? ""}`.trim());
     }
@@ -213,7 +291,7 @@ export default {
     // vary the tag by representation to keep conditional requests correct.
     const repEtag = serveRendered ? `"${version.content_hash}-r"` : etag;
 
-    const headers = securityHeaders({
+    const headers = securityHeaders(env.DASHBOARD_ORIGIN, {
       "Content-Type": contentType,
       "Cache-Control": cacheControl,
       ETag: repEtag,

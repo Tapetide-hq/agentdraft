@@ -41,9 +41,16 @@ var listCmd = &cobra.Command{
 			return nil
 		}
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "DRAFT ID\tVER\tTITLE\tURL")
+		// VISIBILITY is shown because a private draft's URL looks identical to a public
+		// one. Without this column the only way to tell them apart is to open the link
+		// in a logged-out browser, which is exactly the mistake this column prevents.
+		fmt.Fprintln(w, "DRAFT ID	VER	VISIBILITY	TITLE	URL")
 		for _, d := range resp.Drafts {
-			fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", d.ID, d.PublishedVersion, truncate(d.Title, 30), d.PublicURL)
+			vis := "public"
+			if d.IsPublic == 0 {
+				vis = "private"
+			}
+			fmt.Fprintf(w, "%s	%d	%s	%s	%s\n", d.ID, d.PublishedVersion, vis, truncate(d.Title, 30), d.PublicURL)
 		}
 		return w.Flush()
 	},

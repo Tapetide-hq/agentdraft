@@ -2,9 +2,14 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./env.js";
 import type { AuthContext } from "./types.js";
-import { requireAuth, requireScope, requireGoogleIdentity } from "./middleware/auth.js";
+import {
+  requireAuth,
+  requireScope,
+  requireGoogleIdentity,
+  requireHumanSession,
+} from "./middleware/auth.js";
 import { rateLimit } from "./middleware/ratelimit.js";
-import { jsonError } from "./lib/http.js";
+import { jsonError, readJsonObject } from "./lib/http.js";
 import uploadRoute from "./routes/upload.js";
 import bootstrapRoute from "./routes/bootstrap.js";
 import sessionRoute from "./routes/session.js";
@@ -47,6 +52,7 @@ app.get("/api/config", (c) =>
   c.json({
     ok: true,
     google_oauth_enabled: c.env.GOOGLE_OAUTH_ENABLED === "true",
+    auth_mode: c.env.AUTH_MODE === "hosted" ? "hosted" : "self-hosted",
     content_base_url: c.env.CONTENT_BASE_URL,
   }),
 );
@@ -74,10 +80,40 @@ app.get("/api/me", requireAuth(), (c) => {
       name: auth.account.name,
       email: auth.account.email,
       is_owner: !!auth.account.is_owner,
+      // Default visibility for NEW drafts. Surfaced here so both the CLI (`whoami`) and
+      // the dashboard read one source of truth rather than each keeping a local guess.
+      default_draft_public: auth.account.default_draft_public !== 0,
     },
     via: auth.via,
     scopes: auth.scopes,
   });
+});
+
+// PATCH /api/me/settings — account preferences.
+// Body: { default_draft_public: boolean }
+//
+// Changing this affects FUTURE drafts only. Existing drafts are untouched, because
+// silently flipping links already shared with reviewers is the one behaviour a
+// visibility preference must never have. The bulk endpoint is the explicit opt-in.
+app.patch("/api/me/settings", requireAuth(), requireScope("upload"), async (c) => {
+  const auth = c.get("auth");
+  const parsed = await readJsonObject(c);
+  if (!parsed.ok) return parsed.response;
+  if (typeof parsed.body.default_draft_public !== "boolean") {
+    return jsonError(
+      c,
+      400,
+      "E_BAD_FIELD",
+      "Field 'default_draft_public' must be a boolean.",
+    );
+  }
+  const val = parsed.body.default_draft_public ? 1 : 0;
+  await c.env.DB.prepare(
+    "UPDATE accounts SET default_draft_public = ?, updated_at = datetime('now') WHERE id = ?",
+  )
+    .bind(val, auth.account.id)
+    .run();
+  return c.json({ ok: true, default_draft_public: !!val });
 });
 
 // Read APIs — auth + read scope + generous rate limit (1000/hour).
@@ -87,17 +123,29 @@ app.route("/api/projects", projectsRoute);
 
 app.use("/api/drafts/*", requireAuth(), rateLimit("read", 1000, 3600));
 app.use("/api/drafts", requireAuth(), rateLimit("read", 1000, 3600));
+// Visibility is a MUTATION, so it needs more than the read scope every draft route
+// carries. "upload" is the write capability a machine key already holds, which keeps the
+// CLI able to publish privately without granting it account administration ("manage").
+//
+// Registered BEFORE app.route so these run as route-specific middleware. Hono matches
+// middleware by path, so the bulk route must be listed explicitly — "/api/drafts/*"
+// above already covers it for auth, but the scope gate has to name each mutation.
+app.patch("/api/drafts/:id/visibility", requireScope("upload"));
+app.post("/api/drafts/visibility/bulk", requireScope("upload"));
 app.route("/api/drafts", draftsRoute);
 
 // API key management requires the "manage" scope. This blocks an upload/read key
 // from escalating to mint new keys, while allowing a manage-scoped key (or a dashboard
 // session, which carries manage) to administer keys. The dashboard uses a BFF that
 // holds a manage key server-side; /api/session remains a valid alternative integration.
-app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
-app.use("/api/api-keys", requireAuth(), requireScope("manage"), rateLimit("read", 1000, 3600));
-// Minting a key is the only operation that creates durable NEW access, so it carries an
-// extra gate: a verified Google identity. Listing and revoking deliberately do NOT —
-// you must always be able to revoke a key, including when your IdP is unavailable.
+// Key management is DASHBOARD-ONLY in hosted mode: requireHumanSession rejects API-key
+// bearer auth outright, so a machine credential can publish but never administer the
+// account. On a self-hosted instance with no IdP these middlewares no-op, keeping that
+// deployment usable.
+app.use("/api/api-keys/*", requireAuth(), requireScope("manage"), requireHumanSession(), rateLimit("read", 1000, 3600));
+app.use("/api/api-keys", requireAuth(), requireScope("manage"), requireHumanSession(), rateLimit("read", 1000, 3600));
+// Minting additionally requires a verified Google identity, and FAILS CLOSED in hosted
+// mode if OAuth is misconfigured rather than silently accepting a key.
 app.post("/api/api-keys", requireGoogleIdentity());
 app.route("/api/api-keys", keysRoute);
 

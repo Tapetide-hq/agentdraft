@@ -20,4 +20,8 @@ jobs:
           bun-version: latest
       - run: bun install
       - run: bun run check
+      # The open-redirect guard on ?next= is security-critical and only provable by test:
+      # a comment claiming a value is validated is not evidence. Runs before build so a
+      # regression fails fast.
+      - run: bun run test
       - run: bun run build
