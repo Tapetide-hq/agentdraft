@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/agentdraft/main/cli/ins
 
 State lives in `~/.agentdraft/` (dir `0700`, files `0600`):
 
-- `config.json` — `{ "api_url": "https://api.postplan.tapetide.com" }`
+- `config.json` — `{ "api_url": "https://api.agentdraft.tapetide.com" }`
 - `credentials.json` — `{ "api_key": "ad_…", "account_id": "acct_…" }`
 - `drafts.json` — maps local file paths to draft IDs so re-uploads update the same draft
 

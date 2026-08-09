@@ -1,7 +1,7 @@
 # API Reference
 
-Base URL: `https://api.postplan.tapetide.com`
-Public content is served from `https://postplan.tapetide.com`.
+Base URL: `https://api.agentdraft.tapetide.com`
+Public content is served from `https://agentdraft.tapetide.com`.
 
 ## Authentication
 

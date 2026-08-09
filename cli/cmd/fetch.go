@@ -74,7 +74,7 @@ func resolveFetchURL(target string, version int) string {
 		return strings.TrimRight(target, "/") + "/raw"
 	}
 	// bare id — derive the content host from the configured API host.
-	// api.postplan.tapetide.com -> postplan.tapetide.com (strip the leading "api." label).
+	// api.agentdraft.tapetide.com -> agentdraft.tapetide.com (strip the leading "api." label).
 	// Falls back to the api host itself if the pattern does not match.
 	content := contentHostFrom(configuredAPIURL())
 	if version > 0 {
@@ -95,7 +95,7 @@ func configuredAPIURL() string {
 }
 
 // contentHostFrom derives the public content origin from the API origin by stripping a
-// leading "api." label (api.postplan.example -> postplan.example). If there is no such
+// leading "api." label (api.agentdraft.example -> agentdraft.example). If there is no such
 // label the API origin is returned unchanged, which is the correct behaviour for a
 // single-host deployment.
 func contentHostFrom(apiURL string) string {

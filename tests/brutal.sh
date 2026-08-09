@@ -7,16 +7,16 @@
 # deployment over the network.
 #
 # Usage:
-#   API=https://api.postplan.tapetide.com \
-#   CONTENT=https://postplan.tapetide.com \
+#   API=https://api.agentdraft.tapetide.com \
+#   CONTENT=https://agentdraft.tapetide.com \
 #   KEY=ad_xxx [BOOTSTRAP_SECRET=xxx] ./tests/brutal.sh
 #
 # Exit code 0 only if every assertion passes.
 
 set -uo pipefail
 
-API="${API:-https://api.postplan.tapetide.com}"
-CONTENT="${CONTENT:-https://postplan.tapetide.com}"
+API="${API:-https://api.agentdraft.tapetide.com}"
+CONTENT="${CONTENT:-https://agentdraft.tapetide.com}"
 KEY="${KEY:-}"
 
 if [ -z "$KEY" ]; then echo "FATAL: set KEY to a valid ad_ API key" >&2; exit 2; fi
