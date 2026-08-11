@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -80,6 +82,62 @@ func (c *Client) do(method, path string, body any, headers map[string]string) ([
 		return nil, resp.StatusCode, err
 	}
 	return data, resp.StatusCode, nil
+}
+
+// UploadFile streams a raw file to POST /api/files. Filename and content type travel in
+// headers so the request body stays pure bytes and can be streamed without buffering the
+// whole file into memory. Uses a dedicated client with no timeout, since a large file over
+// a slow link can easily exceed the 30s default.
+func (c *Client) UploadFile(path, contentType, cliVersion, idempotencyKey string) (*UploadFileResponse, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/api/files", f)
+	if err != nil {
+		return nil, err
+	}
+	// Setting ContentLength lets net/http send a real Content-Length instead of chunked
+	// transfer encoding, so the server can reject oversize up front.
+	req.ContentLength = st.Size()
+	if c.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	req.Header.Set("X-Filename", filepath.Base(path))
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if cliVersion != "" {
+		req.Header.Set("X-CLI-Version", cliVersion)
+	}
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+
+	client := &http.Client{} // no timeout: a large upload may take a while
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp.StatusCode, data)
+	}
+	var r UploadFileResponse
+	if err := json.Unmarshal(data, &r); err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 func (c *Client) Upload(req UploadRequest, idempotencyKey string) (*UploadResponse, error) {
