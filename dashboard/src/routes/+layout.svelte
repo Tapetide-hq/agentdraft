@@ -24,6 +24,7 @@
     </a>
     {#if data.authed}
       <a href="/dashboard" class:active={path === "/dashboard"}>Drafts</a>
+      <a href="/files" class:active={path.startsWith("/files")}>Files</a>
       <a href="/projects" class:active={path.startsWith("/projects")}>Projects</a>
       <a href="/settings/keys" class:active={path.startsWith("/settings/keys")}>Keys</a>
       <a href="/settings/privacy" class:active={path.startsWith("/settings/privacy")}>Privacy</a>

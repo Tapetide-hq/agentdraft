@@ -61,6 +61,47 @@ the server decide.
   "content_deduplicated": false
 }
 ```
+### `POST /api/files`  *(scope: upload)*
+
+The **arbitrary-file lane** — for binaries (screenshots, recordings, logs, PDFs, zips)
+rather than reviewable documents. The request body is the **raw file bytes**, streamed
+straight to R2 (never buffered), so filename and type travel in headers:
+
+- `X-Filename: <name>` **(required)** — base name only; used as the download filename.
+- `Content-Type: <mime>` *(optional)* — inferred from the extension when blank.
+- `Idempotency-Key: <k>` *(optional)* — a replay returns the existing file, no new object.
+- `X-CLI-Version: <v>` *(optional)*.
+
+Max size **100 MB** (the Cloudflare Free-plan request-body cap; oversize → `413 E_TOO_LARGE`).
+Files are **not versioned** — each upload mints a fresh id and URL. 201 response:
+
+```json
+{
+  "ok": true,
+  "file_id": "vhfkhc4sv7a03nau6ciojg",
+  "public_url": "https://agentdraft.tapetide.com/f/vhfkhc4sv7a03nau6ciojg",
+  "filename": "screenshot.png",
+  "content_type": "image/png",
+  "file_size": 18244,
+  "idempotent_replay": false
+}
+```
+
+### `GET /api/files`  *(scope: read)*
+Lists the account's files (newest first, `?limit=<n>` up to 500).
+
+### `POST /api/files/:id/disable`  *(scope: upload)*
+Takes a file down — it serves `451` from then on. Ownership is enforced in the query, so a
+non-owner gets a plain `404` (no existence oracle).
+
+### `GET /f/:id`  *(no auth, content origin)*
+Serves a stored file. **Attachment by default**; served **inline only** for a strict
+allowlist (`image/png|jpeg|gif|webp|avif`, `video/mp4|webm`, `audio/mpeg|mp4`, `text/plain`,
+`application/pdf`). `text/html` and `image/svg+xml` are **never inline** — that is what
+keeps an uploaded file from executing as a page on the shared document origin. Every
+response is `X-Content-Type-Options: nosniff` and hard-cached (`immutable`); `Range`
+requests return `206` for media seeking.
+
 ### Markdown
 
 A Markdown upload is rendered **once at upload time** into a self-contained HTML

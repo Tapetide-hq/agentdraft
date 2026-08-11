@@ -73,6 +73,23 @@ A private draft's link still works **for you**: it redirects through the dashboa
 verifies you own it. Anyone else gets a sign-in page. `--all` reports how many drafts
 actually changed, so a no-op says so instead of claiming success.
 
+### `agentdraft file <path>`
+Upload **any file** (screenshot, recording, log, PDF, archive) and get a public URL. Unlike
+`upload` (which renders HTML/Markdown as a readable document), `file` stores raw bytes and
+serves them as-is.
+```
+--content-type <mime>    Override the type sent to the server
+--idempotency-key <k>    Dedupe retries; a replay returns the same file
+```
+Images, MP4/WebM, MP3, plain text, and PDF preview in the browser; everything else
+downloads. Files are **not versioned** — each upload is a new URL. Max size 100 MB. Files
+are public to anyone holding the URL — do not upload secrets.
+
+```bash
+agentdraft file screenshot.png
+# URL:   https://agentdraft.tapetide.com/f/vhfkhc4sv7a03nau6ciojg
+```
+
 ### `agentdraft fetch <url|draft-id>`
 Download served HTML.
 ```

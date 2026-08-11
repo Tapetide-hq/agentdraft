@@ -110,3 +110,22 @@ export interface UploadRequest {
   description?: string;
   metadata?: UploadMetadata;
 }
+
+// A stored arbitrary file (the file lane — NOT a draft). Files are unversioned: each
+// upload mints a fresh id + URL. Public by unguessable id, like a public draft.
+export interface FileRow {
+  id: string;
+  account_id: string;
+  object_key: string;
+  filename: string;
+  content_type: string;
+  file_size: number;
+  created_by_key_id: string | null;
+  idempotency_key: string | null;
+  source_ip: string | null;
+  cli_version: string | null;
+  disabled_at: string | null;
+  disabled_reason: string | null;
+  deleted_at: string | null;
+  created_at: string;
+}

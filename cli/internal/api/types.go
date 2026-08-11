@@ -43,6 +43,17 @@ type UploadResponse struct {
 	IdempotentReplay bool              `json:"idempotent_replay"`
 }
 
+// UploadFileResponse is the reply from POST /api/files (the arbitrary-file lane).
+type UploadFileResponse struct {
+	OK               bool   `json:"ok"`
+	FileID           string `json:"file_id"`
+	PublicURL        string `json:"public_url"`
+	Filename         string `json:"filename"`
+	ContentType      string `json:"content_type"`
+	FileSize         int64  `json:"file_size"`
+	IdempotentReplay bool   `json:"idempotent_replay"`
+}
+
 type Account struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`

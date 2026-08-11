@@ -11,6 +11,175 @@ import { iconResponse } from "./icons.js";
 
 type Env = globalThis.Env;
 
+// MIRROR of worker/src/services/files.ts INLINE_ALLOWLIST — the two workers do not share a
+// module, so keep these identical. The ONLY types served inline; everything else downloads
+// (Content-Disposition: attachment). text/html and image/svg+xml are deliberately ABSENT:
+// serving either inline on this origin would let an uploaded "file" execute as a page on
+// the same origin that also holds documents. That is the one rule that keeps the file lane
+// safe on the shared origin.
+const INLINE_ALLOWLIST = new Set<string>([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "video/mp4",
+  "video/webm",
+  "audio/mpeg",
+  "audio/mp4",
+  "text/plain",
+  "application/pdf",
+]);
+
+function isInlineType(contentType: string): boolean {
+  return INLINE_ALLOWLIST.has(contentType.split(";")[0].trim().toLowerCase());
+}
+
+// Build a Content-Disposition header with an ASCII-safe fallback and an RFC 5987
+// filename* for full-fidelity names.
+function contentDisposition(disposition: "inline" | "attachment", filename: string): string {
+  const ascii = filename.replace(/[\x00-\x1f"\\]/g, "_").replace(/[^\x20-\x7e]/g, "_");
+  const encoded = encodeURIComponent(filename);
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+interface FileRow {
+  id: string;
+  object_key: string;
+  filename: string;
+  content_type: string;
+  file_size: number;
+  disabled_at: string | null;
+  disabled_reason: string | null;
+  deleted_at: string | null;
+}
+
+// Serve a stored arbitrary file at /f/:id. Default is ATTACHMENT (download); inline only
+// for the strict allowlist. Always nosniff. Honors Range for media seeking.
+async function serveFile(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  fileId: string,
+): Promise<Response> {
+  const row = await env.DB.prepare(
+    "SELECT id, object_key, filename, content_type, file_size, disabled_at, disabled_reason, deleted_at FROM files WHERE id = ?",
+  )
+    .bind(fileId)
+    .first<FileRow>();
+
+  if (!row || row.deleted_at) return textResponse(404, "Not Found");
+  if (row.disabled_at) {
+    return textResponse(451, `This file has been disabled. ${row.disabled_reason ?? ""}`.trim());
+  }
+
+  const inline = isInlineType(row.content_type);
+  // The file id is immutable — its bytes never change — so a versioned-style hard cache is
+  // correct. The ETag is the object key, which is unique per upload.
+  const etag = `"${row.object_key}"`;
+
+  const baseHeaders: Record<string, string> = {
+    "Content-Type": row.content_type,
+    // ALWAYS nosniff: a file that lies about its type cannot be reinterpreted as markup.
+    "X-Content-Type-Options": "nosniff",
+    "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", row.filename),
+    // No document capabilities on a raw file. sandbox with no allow-* neuters any active
+    // content even if a browser somehow tried to execute it.
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "X-Robots-Tag": "noindex, nofollow",
+    "Referrer-Policy": "no-referrer",
+    // Files are never embedded in the dashboard preview, so this can be strict — unlike the
+    // draft path, which must allow the dashboard origin to frame it.
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
+    "Cache-Control": "public, max-age=31536000, immutable",
+    ETag: etag,
+    "Accept-Ranges": "bytes",
+    "X-AgentDraft-File-Id": fileId,
+  };
+
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (ifNoneMatch && ifNoneMatchMatches(ifNoneMatch, etag)) {
+    return new Response(null, { status: 304, headers: baseHeaders });
+  }
+
+  // HEAD: metadata only.
+  if (request.method === "HEAD") {
+    const meta = await env.STORAGE.head(row.object_key);
+    if (!meta) return textResponse(404, "Content unavailable.");
+    baseHeaders["Content-Length"] = String(meta.size);
+    return new Response(null, { status: 200, headers: baseHeaders });
+  }
+
+  // Range request — parse a single "bytes=start-end". Enables in-browser media seeking.
+  const rangeHeader = request.headers.get("range");
+  if (rangeHeader) {
+    const size = row.file_size;
+    const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match || (match[1] === "" && match[2] === "")) {
+      return textResponse(416, "Range Not Satisfiable");
+    }
+    let start: number;
+    let end: number;
+    if (match[1] === "") {
+      // suffix range: last N bytes
+      const suffix = parseInt(match[2], 10);
+      if (suffix === 0) return rangeNotSatisfiable(size);
+      start = Math.max(0, size - suffix);
+      end = size - 1;
+    } else {
+      start = parseInt(match[1], 10);
+      end = match[2] === "" ? size - 1 : parseInt(match[2], 10);
+    }
+    if (start > end || start >= size) return rangeNotSatisfiable(size);
+    end = Math.min(end, size - 1);
+
+    const obj = await env.STORAGE.get(row.object_key, {
+      range: { offset: start, length: end - start + 1 },
+    });
+    if (!obj) return textResponse(404, "Content unavailable.");
+    const partialHeaders = {
+      ...baseHeaders,
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1),
+    };
+    // Do NOT cache 206 partials — the Cache API keys on URL, and a cached partial would be
+    // served to a client asking for the whole object.
+    return new Response(obj.body, { status: 206, headers: partialHeaders });
+  }
+
+  // Full GET — serve from cache when possible, else stream from R2 and cache.
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, { method: "GET" });
+  const hit = await cache.match(cacheKey);
+  if (hit) {
+    const hitEtag = hit.headers.get("etag");
+    if (hitEtag && ifNoneMatchMatches(ifNoneMatch, hitEtag)) {
+      return new Response(null, { status: 304, headers: hit.headers });
+    }
+    return hit;
+  }
+
+  const obj = await env.STORAGE.get(row.object_key);
+  if (!obj) return textResponse(404, "Content unavailable.");
+  baseHeaders["Content-Length"] = String(row.file_size);
+  const response = new Response(obj.body, { status: 200, headers: baseHeaders });
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
+}
+
+function rangeNotSatisfiable(size: number): Response {
+  return new Response("Range Not Satisfiable", {
+    status: 416,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Range": `bytes */${size}`,
+      "X-Robots-Tag": "noindex",
+    },
+  });
+}
+
 interface DraftRow {
   id: string;
   published_version: number | null;
@@ -144,6 +313,11 @@ export default {
     // every published draft a real tab icon while leaving content untouched.
     const icon = iconResponse(url.pathname, request.method);
     if (icon) return icon;
+
+    // File lane: /f/:id. Matched BEFORE the draft path so the two namespaces never
+    // collide. Files are served attachment-by-default with a strict inline allowlist.
+    const fm = url.pathname.match(/^\/f\/([a-z0-9]{6,32})\/?$/);
+    if (fm) return serveFile(request, env, ctx, fm[1]);
 
     if (!m) return textResponse(404, "Not Found");
 
