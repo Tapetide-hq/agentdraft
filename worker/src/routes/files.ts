@@ -106,6 +106,46 @@ files.post("/", async (c) => {
   return c.json(makeResponse(c.env, row!, false), 201);
 });
 
+// GET /api/files — the signed-in account's files (newest first). Read scope.
+files.get("/", async (c) => {
+  const auth = c.get("auth");
+  const limit = Math.min(parseInt(c.req.query("limit") ?? "200", 10) || 200, 500);
+  const rows = await c.env.DB.prepare(
+    `SELECT id, filename, content_type, file_size, disabled_at, created_at
+     FROM files WHERE account_id = ? AND deleted_at IS NULL
+     ORDER BY created_at DESC LIMIT ?`,
+  )
+    .bind(auth.account.id, limit)
+    .all<FileRow>();
+  const base = c.env.CONTENT_BASE_URL.replace(/\/$/, "");
+  const list = (rows.results ?? []).map((f) => ({
+    id: f.id,
+    filename: f.filename,
+    content_type: f.content_type,
+    file_size: f.file_size,
+    disabled_at: f.disabled_at,
+    created_at: f.created_at,
+    public_url: `${base}/f/${f.id}`,
+  }));
+  return c.json({ ok: true, files: list });
+});
+
+// POST /api/files/:id/disable — take a file down (451 at serve time). Ownership enforced
+// in the WHERE clause so a non-owner gets a plain 404, never an existence oracle.
+files.post("/:id/disable", async (c) => {
+  const auth = c.get("auth");
+  const id = c.req.param("id");
+  const res = await c.env.DB.prepare(
+    "UPDATE files SET disabled_at = datetime('now'), disabled_reason = 'Disabled by owner' WHERE id = ? AND account_id = ? AND deleted_at IS NULL AND disabled_at IS NULL",
+  )
+    .bind(id, auth.account.id)
+    .run();
+  if (!res.meta || res.meta.changes === 0) {
+    return jsonError(c, 404, "E_FILE_NOT_FOUND", "File not found or already disabled.");
+  }
+  return c.json({ ok: true, id, disabled: true });
+});
+
 function makeResponse(env: Env, f: FileRow, idempotentReplay: boolean) {
   const base = env.CONTENT_BASE_URL.replace(/\/$/, "");
   return {

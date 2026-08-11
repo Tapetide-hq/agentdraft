@@ -71,10 +71,15 @@ app.route("/api/session", sessionRoute);
 app.use("/api/upload", requireAuth(), requireScope("upload"), rateLimit("upload", 100, 3600));
 app.route("/api/upload", uploadRoute);
 
-// File upload — same auth + scope + rate limit as document upload. The file lane stores
-// arbitrary bytes; safety is enforced at SERVE time (attachment-default + inline allowlist
-// + nosniff on the content worker), not by validating the bytes here.
-app.use("/api/files", requireAuth(), requireScope("upload"), rateLimit("upload", 100, 3600));
+// File lane. The upload stores arbitrary bytes; safety is enforced at SERVE time
+// (attachment-default + inline allowlist + nosniff on the content worker), not by
+// validating the bytes here. Scope is method-specific: listing needs only `read`, while
+// uploading and disabling are mutations that need `upload`. Registered as route-specific
+// middleware (Hono matches by path+method) BEFORE app.route so it runs first.
+app.use("/api/files/*", requireAuth(), rateLimit("read", 1000, 3600));
+app.use("/api/files", requireAuth(), rateLimit("read", 1000, 3600));
+app.post("/api/files", requireScope("upload"), rateLimit("upload", 100, 3600));
+app.post("/api/files/:id/disable", requireScope("upload"));
 app.route("/api/files", filesRoute);
 
 // Identity.
