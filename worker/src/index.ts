@@ -11,6 +11,7 @@ import {
 import { rateLimit } from "./middleware/ratelimit.js";
 import { jsonError, readJsonObject } from "./lib/http.js";
 import uploadRoute from "./routes/upload.js";
+import filesRoute from "./routes/files.js";
 import bootstrapRoute from "./routes/bootstrap.js";
 import sessionRoute from "./routes/session.js";
 import keysRoute from "./routes/keys.js";
@@ -69,6 +70,12 @@ app.route("/api/session", sessionRoute);
 // Upload — auth + upload scope + rate limit (100/hour per key).
 app.use("/api/upload", requireAuth(), requireScope("upload"), rateLimit("upload", 100, 3600));
 app.route("/api/upload", uploadRoute);
+
+// File upload — same auth + scope + rate limit as document upload. The file lane stores
+// arbitrary bytes; safety is enforced at SERVE time (attachment-default + inline allowlist
+// + nosniff on the content worker), not by validating the bytes here.
+app.use("/api/files", requireAuth(), requireScope("upload"), rateLimit("upload", 100, 3600));
+app.route("/api/files", filesRoute);
 
 // Identity.
 app.get("/api/me", requireAuth(), (c) => {

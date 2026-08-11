@@ -1,0 +1,138 @@
+import { Hono } from "hono";
+import type { Env } from "../env.js";
+import type { AuthContext, FileRow } from "../types.js";
+import { jsonError, clientIp } from "../lib/http.js";
+import { MAX_FILE_BYTES, resolveContentType, fileObjectKey } from "../services/files.js";
+import { newDraftId } from "../services/id.js";
+
+type Vars = { Variables: { auth: AuthContext }; Bindings: Env };
+const files = new Hono<Vars>();
+
+// POST /api/files
+// Body: raw file bytes (streamed straight to R2 — never buffered).
+// Headers: X-Filename (required), Content-Type (optional), Idempotency-Key (optional),
+//          X-CLI-Version (optional).
+files.post("/", async (c) => {
+  const auth = c.get("auth");
+
+  const rawName = c.req.header("x-filename") ?? "";
+  // Use only the base name; strip any path a client accidentally sent. Reject empties and
+  // control chars. The stored name is what a browser downloads AS, so keep it sane.
+  const filename = rawName.split(/[\\/]/).pop()?.trim() ?? "";
+  if (!filename || filename.length > 255 || /[\x00-\x1f]/.test(filename)) {
+    return jsonError(c, 400, "E_BAD_FILENAME", "A valid X-Filename header is required.");
+  }
+
+  // Reject oversize up front via Content-Length when present (saves streaming a body we
+  // will refuse). The stream guard below is the real enforcement — a client can lie about
+  // or omit Content-Length.
+  const declaredLen = Number(c.req.header("content-length") ?? "0");
+  if (Number.isFinite(declaredLen) && declaredLen > MAX_FILE_BYTES) {
+    return jsonError(
+      c,
+      413,
+      "E_TOO_LARGE",
+      `File is ${declaredLen} bytes; limit is ${MAX_FILE_BYTES}.`,
+    );
+  }
+
+  const body = c.req.raw.body;
+  if (!body) return jsonError(c, 400, "E_NO_CONTENT", "Request body is required.");
+
+  const contentType = resolveContentType(c.req.header("content-type") ?? null, filename);
+  const idempotencyKey = c.req.header("idempotency-key") ?? null;
+
+  // Idempotency: an agent retry with the same key returns the existing file, no new object.
+  if (idempotencyKey) {
+    const existing = await c.env.DB.prepare(
+      "SELECT * FROM files WHERE account_id = ? AND idempotency_key = ? AND deleted_at IS NULL",
+    )
+      .bind(auth.account.id, idempotencyKey)
+      .first<FileRow>();
+    if (existing) return c.json(makeResponse(c.env, existing, true));
+  }
+
+  const id = newDraftId(); // 22-char base36 generator, reused for files
+  const key = fileObjectKey(id);
+
+  // Stream the body straight to R2. A MAX_FILE_BYTES guard wraps the stream so a client
+  // that omits/lies about Content-Length still cannot exceed the cap — we abort the PUT.
+  let total = 0;
+  const capped = body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, ctrl) {
+        total += chunk.byteLength;
+        if (total > MAX_FILE_BYTES) {
+          ctrl.error(new Error("E_TOO_LARGE"));
+          return;
+        }
+        ctrl.enqueue(chunk);
+      },
+    }),
+  );
+
+  try {
+    await c.env.STORAGE.put(key, capped, {
+      httpMetadata: { contentType },
+      customMetadata: {
+        account_id: auth.account.id,
+        filename,
+        uploaded_at: new Date().toISOString(),
+      },
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "E_TOO_LARGE") {
+      return jsonError(
+        c,
+        413,
+        "E_TOO_LARGE",
+        `File exceeds the ${MAX_FILE_BYTES}-byte limit.`,
+      );
+    }
+    return jsonError(c, 500, "E_STORAGE", "Failed to store the file.");
+  }
+
+  // Read back the authoritative size from R2 (the stream counter is advisory).
+  const head = await c.env.STORAGE.head(key);
+  const size = head?.size ?? total;
+
+  await c.env.DB.prepare(
+    `INSERT INTO files
+      (id, account_id, object_key, filename, content_type, file_size,
+       created_by_key_id, idempotency_key, source_ip, cli_version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      id,
+      auth.account.id,
+      key,
+      filename,
+      contentType,
+      size,
+      auth.keyId ?? null,
+      idempotencyKey,
+      clientIp(c),
+      c.req.header("x-cli-version") ?? null,
+    )
+    .run();
+
+  const row = await c.env.DB.prepare("SELECT * FROM files WHERE id = ?")
+    .bind(id)
+    .first<FileRow>();
+  return c.json(makeResponse(c.env, row!, false), 201);
+});
+
+function makeResponse(env: Env, f: FileRow, idempotentReplay: boolean) {
+  const base = env.CONTENT_BASE_URL.replace(/\/$/, "");
+  return {
+    ok: true,
+    file_id: f.id,
+    public_url: `${base}/f/${f.id}`,
+    filename: f.filename,
+    content_type: f.content_type,
+    file_size: f.file_size,
+    idempotent_replay: idempotentReplay,
+  };
+}
+
+export default files;
