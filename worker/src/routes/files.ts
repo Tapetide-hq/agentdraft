@@ -55,24 +55,16 @@ files.post("/", async (c) => {
   const id = newDraftId(); // 22-char base36 generator, reused for files
   const key = fileObjectKey(id);
 
-  // Stream the body straight to R2. A MAX_FILE_BYTES guard wraps the stream so a client
-  // that omits/lies about Content-Length still cannot exceed the cap — we abort the PUT.
-  let total = 0;
-  const capped = body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, ctrl) {
-        total += chunk.byteLength;
-        if (total > MAX_FILE_BYTES) {
-          ctrl.error(new Error("E_TOO_LARGE"));
-          return;
-        }
-        ctrl.enqueue(chunk);
-      },
-    }),
-  );
-
+  // Stream the request body straight to R2 — never buffer it (Worker memory is 128 MB).
+  //
+  // We pass c.req.raw.body DIRECTLY, not through a TransformStream. R2.put() needs a
+  // FIXED-LENGTH stream: the raw request body carries the request's Content-Length, but a
+  // piped TransformStream has unknown length and R2 rejects it. The hard 100 MB cap does
+  // not need a byte-counting guard here anyway — Cloudflare enforces the request-body
+  // limit at the EDGE (a >100 MB body is 413'd before this Worker ever runs), and the
+  // Content-Length pre-check above rejects an oversize declared length early.
   try {
-    await c.env.STORAGE.put(key, capped, {
+    await c.env.STORAGE.put(key, body, {
       httpMetadata: { contentType },
       customMetadata: {
         account_id: auth.account.id,
@@ -80,21 +72,13 @@ files.post("/", async (c) => {
         uploaded_at: new Date().toISOString(),
       },
     });
-  } catch (e) {
-    if (e instanceof Error && e.message === "E_TOO_LARGE") {
-      return jsonError(
-        c,
-        413,
-        "E_TOO_LARGE",
-        `File exceeds the ${MAX_FILE_BYTES}-byte limit.`,
-      );
-    }
+  } catch {
     return jsonError(c, 500, "E_STORAGE", "Failed to store the file.");
   }
 
-  // Read back the authoritative size from R2 (the stream counter is advisory).
+  // Read back the authoritative size from R2.
   const head = await c.env.STORAGE.head(key);
-  const size = head?.size ?? total;
+  const size = head?.size ?? declaredLen;
 
   await c.env.DB.prepare(
     `INSERT INTO files
