@@ -34,46 +34,54 @@ marked.use({
 
 // Self-contained, dependency-free styling. No external fonts/CSS: the CSP on the
 // content origin forbids remote script/connect, and an offline-readable document is
-// the point. Uses a light canvas because uploaded documents are read like paper.
+// the point. Figtree is named first so a reader who has it installed matches the
+// dashboard; everyone else falls through to the system sans. Light canvas, near-black
+// ink and the same hairline/mint tones as the dashboard so a draft reads as one product.
 const DOC_CSS = `
-:root{color-scheme:light}
+/* Same tokens as dashboard/src/lib/styles.css :root. Change them together. */
+:root{color-scheme:light;--ink:#1f1f1f;--ink-soft:#4d4d4d;--ink-faint:#6f6f6f;--band:#1f1f1f;
+  --surface:#f6f6f6;--surface-mint:#ecf2f1;--line:#dae5e3;--green:#34d343;--green-ink:#14741f}
 *{box-sizing:border-box}
-body{margin:0;padding:3rem 1.5rem;background:#fff;color:#1a1a1a;
-  font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+body{margin:0;padding:3rem 1.5rem;background:#fff;color:var(--ink);
+  font:16px/1.7 Figtree,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-text-size-adjust:100%}
 main{max-width:44rem;margin:0 auto}
-h1,h2,h3,h4,h5,h6{line-height:1.25;margin:2rem 0 .75rem;font-weight:650;letter-spacing:-.01em}
+h1,h2,h3,h4,h5,h6{line-height:1.2;margin:2rem 0 .75rem;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
 h1{font-size:2.1rem;margin-top:0}
-h2{font-size:1.55rem;padding-bottom:.3rem;border-bottom:1px solid #e5e7eb}
+h2{font-size:1.55rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
 h3{font-size:1.25rem}
 h4{font-size:1.05rem}
 p{margin:0 0 1.1rem}
-a{color:#0b62d6;text-decoration:underline;text-underline-offset:2px}
+/* Links are the signal green-ink (5.9:1 on white) plus an underline, so they read as
+   links by colour AND by shape. Inside a dark code block the bright green takes over. */
+a{color:var(--green-ink);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--ink)}
+pre a,pre a:hover{color:var(--green)}
 ul,ol{margin:0 0 1.1rem;padding-left:1.6rem}
 li{margin:.3rem 0}
 li>p{margin:.3rem 0}
-code{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;padding:.1em .35em;
+code{background:var(--surface-mint);border-radius:6px;padding:.12em .4em;
   font:0.88em/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-pre{background:#f8f9fb;border:1px solid #e5e7eb;border-radius:6px;padding:1rem;
+pre{background:var(--band);color:#fff;border-radius:14px;padding:1rem 1.25rem;
   overflow-x:auto;margin:0 0 1.2rem}
 pre code{background:none;border:0;padding:0;font-size:.86rem;line-height:1.6}
-blockquote{margin:0 0 1.2rem;padding:.2rem 0 .2rem 1.1rem;border-left:3px solid #d1d5db;color:#4b5563}
+blockquote{margin:0 0 1.2rem;padding:.2rem 0 .2rem 1.1rem;border-left:3px solid var(--line);color:var(--ink-soft)}
 table{width:100%;border-collapse:collapse;margin:0 0 1.3rem;font-size:.94rem;display:block;overflow-x:auto}
-th,td{border:1px solid #e5e7eb;padding:.55rem .7rem;text-align:left;vertical-align:top}
-th{background:#f9fafb;font-weight:650}
+th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
 img{max-width:100%;height:auto}
-hr{border:0;border-top:1px solid #e5e7eb;margin:2rem 0}
+hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
 /* Task lists: suppress the list bullet so the ballot glyph is the only marker.
    Without this an item shows BOTH a disc and a checkbox (confirmed in the DOM:
    computed list-style-type was "disc"). :has() is baseline in all current
    browsers; the margin pull-back re-aligns the row with surrounding text. */
 li:has(> .task-box){list-style:none;margin-left:-1.25em}
-.task-box{display:inline-block;width:1.15em;margin-right:.4em;color:#6b7280;
+.task-box{display:inline-block;width:1.15em;margin-right:.4em;color:var(--ink-faint);
   font-family:ui-monospace,monospace;font-size:1.15em;line-height:1;
   /* ballot glyphs come from a fallback font and sit high at cap-height; nudge them
      down so they read as optically centred on the lowercase label text */
   vertical-align:-.08em}
-.task-box--done{color:#059669}
+.task-box--done{color:var(--green-ink)}
 @media (max-width:640px){body{padding:1.75rem 1.1rem}h1{font-size:1.75rem}}
 `.trim();
 

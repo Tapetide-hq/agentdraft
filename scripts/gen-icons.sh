@@ -12,7 +12,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 STATIC="dashboard/static"
-BG="#0a0a0a"   # must match --bg in dashboard/src/lib/styles.css
+BG="#1f1f1f"   # must match --band in dashboard/src/lib/styles.css
 
 command -v rsvg-convert >/dev/null || { echo "need rsvg-convert (apt install librsvg2-bin)"; exit 1; }
 command -v convert      >/dev/null || { echo "need ImageMagick convert"; exit 1; }

@@ -1,118 +1,157 @@
 <script lang="ts">
   import Seo from "$lib/Seo.svelte";
+  import { fmtDate } from "$lib/format";
   let { data, form } = $props();
+
+  let copied = $state(false);
+  async function copyKey(key: string) {
+    try {
+      await navigator.clipboard.writeText(key);
+      copied = true;
+      setTimeout(() => (copied = false), 1800);
+    } catch {
+      /* clipboard blocked: the input below is still selectable */
+    }
+  }
 </script>
 
 <Seo title="API Keys — agentdraft" description="Create and revoke scoped API keys." path="/settings/keys" noindex />
 
-<h1>API <span class="accent">KEYS.</span></h1>
-<p style="max-width:36rem">
-  Create <strong>one key per machine</strong> your agents run on — laptop, remote box, each
-  CI runner. Naming them per machine means you can revoke a single machine without
-  touching the others. The full value is shown once at creation and cannot be retrieved
-  later.
-</p>
-
-{#if !data.canManage}
-  <div class="card">
-    <p class="error">This session cannot manage keys.</p>
-    <p class="subtle" style="margin:0">
-      Keys can only be created from the dashboard after signing in with Google.
-    </p>
-  </div>
-{:else}
-  {#if form?.newKey}
-    <div class="panel panel--accent">
-      <div class="panel__head">new key for “{form.name}” — copy it now</div>
-      <div class="panel__body">
-        <p class="subtle" style="margin-top:0">
-          This is the only time the full key is shown. Store it on that machine and it
-          never needs to be seen again.
+<div class="page">
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1>API keys</h1>
+        <p style="max-width:40rem">
+          An API key lets the agentdraft CLI publish from a machine. Create one key for each
+          machine your agents run on, so you can revoke a single machine later without
+          affecting the others.
         </p>
-        <input
-          readonly
-          value={form.newKey}
-          class="mono"
-          onclick={(e) => (e.currentTarget as HTMLInputElement).select()}
-        />
-        <p class="subtle" style="margin:.9rem 0 0;font-size:13px">Then, on that machine:</p>
-        <pre><code>agentdraft auth set {form.newKey}</code></pre>
       </div>
     </div>
-  {/if}
 
-  <div class="panel panel--accent" style="max-width:36rem">
-    <div class="panel__head">new machine key</div>
-    <div class="panel__body">
-      <form method="POST" action="?/create">
-        <label for="name">Machine name</label>
-        <input id="name" name="name" placeholder="macbook-pro · ci-runner-1 · gpu-box" required />
-        <p class="subtle" style="margin:.5rem 0 0;font-size:13px">
-          Use something you will recognise months from now when deciding what to revoke.
+    {#if !data.canManage}
+      <div class="card card--mint">
+        <h3 style="margin-bottom:.25rem">Sign in with Google to manage keys</h3>
+        <p style="margin:0">
+          You are signed in with an API key, and API keys are not allowed to create or revoke
+          other keys. Sign out, then sign in with Google to manage them here.
         </p>
-        <span class="label" style="display:block;margin:1.1rem 0 .35rem">Scopes</span>
-        <div class="row" style="gap:1.25rem;flex-wrap:wrap">
-          <label class="row" style="margin:0;gap:.4rem;text-transform:none;letter-spacing:0">
-            <input type="checkbox" name="scopes" value="upload" checked style="width:auto" /> upload
-          </label>
-          <label class="row" style="margin:0;gap:.4rem;text-transform:none;letter-spacing:0">
-            <input type="checkbox" name="scopes" value="read" checked style="width:auto" /> read
-          </label>
-        </div>
-        <p class="subtle" style="margin:.6rem 0 0;font-size:13px">
-          Machine keys publish and read. They cannot sign in to this dashboard or create
-          further keys, so a leaked key can never take over the account.
-        </p>
-        {#if form?.message}<p class="error">{form.message}</p>{/if}
-        <div style="margin-top:1.15rem"><button class="btn" type="submit">Create key</button></div>
-      </form>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Your machines</h3>
-    {#if data.keys.length === 0}
-      <p class="subtle">No keys yet. Create one above for the first machine.</p>
+      </div>
     {:else}
-      <table>
-        <thead>
-          <tr><th>Machine</th><th>Prefix</th><th>Scopes</th><th>Last used</th><th>Status</th><th></th></tr>
-        </thead>
-        <tbody>
-          {#each data.keys as k}
-            <tr>
-              <td>{k.name}</td>
-              <td class="mono">{k.key_prefix}&hellip;</td>
-              <td class="subtle">{k.scopes}</td>
-              <td class="subtle">
-                {k.last_used_at ? new Date(k.last_used_at + "Z").toLocaleString() : "never"}
-              </td>
-              <td>
-                {#if k.revoked_at}
-                  <span class="pill pill--danger">revoked</span>
-                {:else}
-                  <span class="pill pill--ok">active</span>
-                {/if}
-              </td>
-              <td>
-                {#if !k.revoked_at}
-                  <form
-                    method="POST"
-                    action="?/revoke"
-                    onsubmit={(e) => {
-                      if (!confirm(`Revoke the key for “${k.name}”? That machine stops publishing immediately.`))
-                        e.preventDefault();
-                    }}
-                  >
-                    <input type="hidden" name="id" value={k.id} />
-                    <button class="btn btn--danger" type="submit">Revoke</button>
-                  </form>
-                {/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      {#if form?.newKey}
+        {@const newKey = form.newKey}
+        <div class="card card--dark">
+          <div class="row row--between row--wrap" style="gap:1rem;margin-bottom:1rem">
+            <h3 style="margin:0">New key for “{form.name}”</h3>
+            <span class="pill pill--ok">shown once</span>
+          </div>
+          <p>
+            Copy it now. For your security the full key is shown only once, and you will not be
+            able to see it again after leaving this page.
+          </p>
+          <div class="row row--wrap">
+            <input
+              readonly
+              value={newKey}
+              class="mono"
+              style="flex:1;min-width:16rem"
+              onclick={(e) => (e.currentTarget as HTMLInputElement).select()}
+            />
+            <button class="btn btn--light" type="button" onclick={() => copyKey(newKey)}>
+              {copied ? "Copied" : "Copy key"}
+            </button>
+          </div>
+          <p class="small" style="margin:1.25rem 0 .5rem">Run this once on the machine that will use it:</p>
+          <div class="term">
+            <div class="term__bar" aria-hidden="true"><span></span><span></span><span></span></div>
+            <pre><code><span class="prompt">$</span> agentdraft auth set {newKey}</code></pre>
+          </div>
+        </div>
+      {/if}
+
+      <div class="split">
+        <div class="card">
+          <h3 style="margin-bottom:1.25rem">Create a key</h3>
+          <form method="POST" action="?/create">
+            <label for="name">Key name</label>
+            <input id="name" name="name" placeholder="macbook-pro · ci-runner-1 · gpu-box" required />
+            <p class="field-hint">Name it after the machine that will use it, so you know which one to revoke later.</p>
+
+            <span class="label-text">Permissions</span>
+            <div class="row row--wrap" style="gap:1.25rem" role="group" aria-label="Permissions">
+              <label class="check"><input type="checkbox" name="scopes" value="upload" checked /> Upload</label>
+              <label class="check"><input type="checkbox" name="scopes" value="read" checked /> Read</label>
+            </div>
+            <p class="field-hint">
+              Upload lets the machine publish drafts and files. Read lets it list and download
+              them. A key can never sign in to this dashboard or create other keys.
+            </p>
+            {#if form?.message}<p class="notice notice--error" style="margin-top:1rem">{form.message}</p>{/if}
+            <div class="form-actions">
+              <button class="btn" type="submit">Create key <span class="arrow">&rarr;</span></button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card card--flush">
+          <div class="card__head">
+            <h3>Your keys</h3>
+            <span class="subtle small">{data.keys.filter((k) => !k.revoked_at).length} active</span>
+          </div>
+          {#if data.keys.length === 0}
+            <div class="card__body">
+              <p class="subtle" style="margin:0">You have not created any keys yet. Create one to start publishing from a machine.</p>
+            </div>
+          {:else}
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>Key starts with</th><th>Permissions</th><th>Last used</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {#each data.keys as k (k.id)}
+                    <tr>
+                      <td style="font-weight:500">{k.name}</td>
+                      <td class="mono subtle">{k.key_prefix}&hellip;</td>
+                      <td>
+                        <div class="row" style="gap:.35rem">
+                          {#each k.scopes.split(",").map((s) => s.trim()).filter(Boolean) as s (s)}
+                            <span class="pill pill--outline">{s}</span>
+                          {/each}
+                        </div>
+                      </td>
+                      <td class="subtle num">{k.last_used_at ? fmtDate(k.last_used_at) : "never"}</td>
+                      <td>
+                        {#if k.revoked_at}
+                          <span class="pill pill--danger">revoked</span>
+                        {:else}
+                          <span class="pill pill--ok">active</span>
+                        {/if}
+                      </td>
+                      <td style="text-align:right">
+                        {#if !k.revoked_at}
+                          <form
+                            method="POST"
+                            action="?/revoke"
+                            onsubmit={(e) => {
+                              if (!confirm(`Revoke “${k.name}”? Any machine using this key will no longer be able to publish.`))
+                                e.preventDefault();
+                            }}
+                          >
+                            <input type="hidden" name="id" value={k.id} />
+                            <button class="btn btn--danger btn--sm" type="submit">Revoke</button>
+                          </form>
+                        {/if}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+      </div>
     {/if}
   </div>
-{/if}
+</div>

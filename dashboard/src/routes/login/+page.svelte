@@ -23,53 +23,112 @@
 
 <Seo title="Sign in — agentdraft" description="Sign in to agentdraft." path="/login" noindex />
 
-<h1>SIGN <span class="accent">IN.</span></h1>
+<div class="page auth-page">
+  <div class="container">
+    <div class="card auth-card">
+      <h1 class="auth-title">{data?.hosted ? "Sign in" : "Sign in with your API key"}</h1>
+      <p class="auth-sub">
+        {#if data?.hosted}
+          Use your Google account to open the dashboard. From there you can see every draft
+          your agents have published and create API keys for the machines they run on.
+        {:else}
+          Paste an API key to open the dashboard. The key is kept in a secure cookie and is
+          never visible to scripts running in your browser.
+        {/if}
+      </p>
 
-{#if data?.hosted}
-  <p style="max-width:32rem">
-    Sign in with Google to reach your dashboard, publish drafts, and create an API key for
-    each machine your agents run on.
-  </p>
-
-  <div class="panel panel--accent" style="max-width:30rem">
-    <div class="panel__head">continue with google</div>
-    <div class="panel__body">
       {#if errorText}
-        <p class="error" style="margin-top:0">{errorText}</p>
+        <p class="notice notice--error">{errorText}</p>
       {/if}
-      <a class="btn" href="/auth/google{nextQS}">Sign in with Google</a>
-      <p class="subtle" style="margin:1rem 0 0;font-size:13px">
-        API keys are machine credentials. They publish drafts but cannot sign in here or
-        create further keys — so a key leaked from a CI config or a dotfile can never be
-        used to take over the account.
+
+      {#if data?.hosted}
+        <a class="btn btn--lg auth-google" href="/auth/google{nextQS}">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.7 1.2 9.2 3.6l6.9-6.9C35.9 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l8 6.2C12.5 13.6 17.8 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.4 5.7c4.4-4 7.2-10 7.2-17.4z"/>
+            <path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6l-8-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l8-6.2z"/>
+            <path fill="#34A853" d="M24 48c6.3 0 11.7-2.1 15.6-5.7l-7.4-5.7c-2.1 1.4-4.8 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.8l-8 6.2C6.5 42.6 14.6 48 24 48z"/>
+          </svg>
+          Continue with Google
+          <span class="arrow">&rarr;</span>
+        </a>
+        <p class="field-hint" style="margin-top:1.25rem">
+          No password to remember. Sign-in happens through Google, and you create API keys
+          from the dashboard afterwards.
+        </p>
+      {:else}
+        <!-- Self-hosted deployment with no IdP configured: key paste is the only way in. -->
+        <form method="POST">
+          <label for="api_key">API key</label>
+          <input id="api_key" name="api_key" type="password" placeholder="ad_…" autocomplete="off" required />
+          {#if form?.message}<p class="error small" style="margin:.75rem 0 0">{form.message}</p>{/if}
+          <div class="form-actions">
+            <button class="btn btn--lg" type="submit" style="width:100%">Sign in <span class="arrow">&rarr;</span></button>
+          </div>
+        </form>
+
+        {#if data?.googleEnabled}
+          <div class="auth-or"><span>or</span></div>
+          <a class="btn btn--outline btn--lg auth-google" href="/auth/google{nextQS}">Continue with Google</a>
+        {/if}
+      {/if}
+
+      <p class="auth-terms">
+        Only publish content you have the right to share. Anything you publish is shown to
+        readers as an untrusted document, with scripts disabled.
       </p>
     </div>
   </div>
-{:else}
-  <!-- Self-hosted deployment with no IdP configured: key paste is the only way in. -->
-  <p style="max-width:32rem">
-    Paste a scoped API key. It is stored in an httpOnly cookie on this origin and is never
-    exposed to browser scripts.
-  </p>
+</div>
 
-  <div class="panel panel--accent" style="max-width:30rem">
-    <div class="panel__head">api key</div>
-    <div class="panel__body">
-      <form method="POST">
-        <label for="api_key">Key</label>
-        <input id="api_key" name="api_key" type="password" placeholder="ad_..." autocomplete="off" required />
-        {#if form?.message}<p class="error" style="margin-top:.75rem">{form.message}</p>{/if}
-        <div style="margin-top:1.15rem">
-          <button class="btn" type="submit">Sign in</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  {#if data?.googleEnabled}
-    <div class="card" style="max-width:30rem">
-      <h3>Or continue with Google</h3>
-      <a class="btn btn--ghost" href="/auth/google{nextQS}">Sign in with Google</a>
-    </div>
-  {/if}
-{/if}
+<style>
+  .auth-page {
+    min-height: calc(100vh - 90px);
+    display: flex;
+    align-items: center;
+    background:
+      radial-gradient(60% 50% at 80% 0%, rgb(var(--green-rgb) / 0.08), transparent 70%),
+      var(--white);
+  }
+  .auth-card {
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 2.5rem;
+  }
+  .auth-title {
+    font-size: 36px;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+  .auth-sub {
+    font-size: 16px;
+    margin-bottom: 1.75rem;
+  }
+  .auth-google {
+    width: 100%;
+  }
+  .auth-google .arrow {
+    margin-left: auto;
+  }
+  .auth-or {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  .auth-or::before,
+  .auth-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+  .auth-terms {
+    margin: 1.75rem 0 0;
+    font-size: 13px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+</style>

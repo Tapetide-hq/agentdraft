@@ -12,7 +12,8 @@ actually break in the wild rather than merely asserting files exist:
     dashboard/static/favicon.ico's 16/32 pair — the generator's whole reason to exist
   * favicon.svg geometry lands on whole device pixels at 16px, with zero antialiased
     rows, because a favicon that is 1px off-grid renders as mush in a tab
-  * the manifest's icons all exist on disk and its theme colour matches the CSS --bg
+  * the manifest's icons all exist on disk, and its theme colour matches BOTH the
+    <meta name="theme-color"> in app.html and the CSS --white canvas
 """
 import base64
 import json
@@ -24,8 +25,9 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STATIC = ROOT / "dashboard" / "static"
-BG = "#0a0a0a"
-ACCENT = "#d6f520"
+BG = "#1f1f1f"       # icon tile; must match --band in dashboard/src/lib/styles.css
+ACCENT = "#34d343"   # must match --green
+THEME = "#ffffff"    # browser/PWA chrome; must match --white and app.html theme-color
 
 failures: list[str] = []
 checks = 0
@@ -64,7 +66,7 @@ def main() -> int:
         corner_alpha = rpx[0, 0][3]
         ok(corner_alpha == 0, "logo.png corners transparent", f"alpha={corner_alpha}")
         colors = {c[:3] for _, c in rim.getcolors(maxcolors=99999) or []}
-        ok((214, 245, 32) in colors, "logo.png carries the accent colour")
+        ok((52, 211, 67) in colors, "logo.png carries the accent colour")
         # The mark is embedded in README.md by relative path; a rename breaks the render
         # silently (GitHub shows a broken-image glyph, not an error).
         readme = (ROOT / "README.md").read_text()
@@ -131,7 +133,9 @@ def main() -> int:
                 return "."
             if r > 200 and g > 200 and b_ > 200:
                 return "W"
-            if r > 150 and g > 170 and b_ < 120:
+            # accent green #34d343 = (52, 211, 67): strong green, red and blue both low
+            # and well apart from green so a blend toward white or the tile is rejected
+            if g > 180 and r < 90 and b_ < 100:
                 return "A"
             if r < 60 and g < 60 and b_ < 60:
                 return "k"
@@ -160,8 +164,12 @@ def main() -> int:
 
     print("== manifest ==")
     mf = json.loads((STATIC / "site.webmanifest").read_text())
-    ok(mf.get("theme_color") == BG, "theme_color matches --bg", mf.get("theme_color"))
-    ok(mf.get("background_color") == BG, "background_color matches --bg")
+    ok(mf.get("theme_color") == THEME, "theme_color matches --white", mf.get("theme_color"))
+    ok(mf.get("background_color") == THEME, "background_color matches --white")
+    html = (ROOT / "dashboard" / "src" / "app.html").read_text()
+    meta = re.search(r'<meta name="theme-color" content="([^"]+)"', html)
+    ok(bool(meta) and meta.group(1) == THEME, "app.html theme-color matches manifest",
+       meta.group(1) if meta else "missing")
     for icon in mf.get("icons", []):
         src = icon["src"].lstrip("/")
         ok((STATIC / src).is_file(), f"manifest icon {icon['src']} exists")
@@ -171,7 +179,7 @@ def main() -> int:
     print("== brand colours ==")
     for name in ("favicon.svg", "icon.svg"):
         txt = (STATIC / name).read_text()
-        ok(BG in txt, f"{name} uses --bg {BG}")
+        ok(BG in txt, f"{name} uses --band {BG}")
         ok(ACCENT in txt, f"{name} uses accent {ACCENT}")
 
     print(f"\n{checks - len(failures)}/{checks} checks passed")
