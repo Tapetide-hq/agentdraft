@@ -13,7 +13,7 @@
     <div class="page-head">
       <div>
         <h1>Files</h1>
-        <p>Signed in as {data.accountName}. Screenshots, PDFs, videos, anything an agent produces.</p>
+        <p>Signed in as {data.accountName}. Screenshots, PDFs, recordings and any other files your agents upload.</p>
       </div>
       {#if data.files.length > 0}
         <div class="page-head__actions">
@@ -31,9 +31,9 @@
       <div class="card card--mint empty">
         <h3>No files yet</h3>
         <p>
-          Upload any file from any machine an agent runs on. Images, MP4 and PDF open in the
-          browser; everything else downloads. Files are public to anyone holding the URL, so
-          never upload secrets.
+          Upload a file with the command below and get back a link. Images, videos and PDFs
+          open in the browser; other file types download. Anyone who has the link can open
+          the file, so do not upload anything secret.
         </p>
         <div class="term">
           <div class="term__bar" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -81,7 +81,7 @@
                           method="POST"
                           action="?/disable"
                           onsubmit={(e) => {
-                            if (!confirm(`Disable "${f.filename}"? The URL stops serving immediately.`))
+                            if (!confirm(`Disable "${f.filename}"? Its link will stop working right away.`))
                               e.preventDefault();
                           }}
                         >

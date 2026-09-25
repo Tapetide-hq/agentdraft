@@ -15,8 +15,8 @@
           <span>agentdraft</span>
         </a>
         <p class="footer__tagline">
-          Publish AI-agent plans to stable, versioned review URLs. HTML and Markdown, one
-          command, from any machine.
+          Publish the plans your AI agents write as permanent, versioned links. Markdown or
+          HTML, one command, from any machine.
         </p>
       </div>
 
@@ -64,7 +64,7 @@
         &copy; {year} agentdraft. Open source by
         <a href="https://tapetide.com/" target="_blank" rel="noopener">Tapetide</a>.
       </span>
-      <span>Published documents are untrusted content and are served from an isolated origin.</span>
+      <span>Published pages are served from a separate domain with scripts disabled.</span>
     </div>
   </div>
 </footer>

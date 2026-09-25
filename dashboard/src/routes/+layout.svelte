@@ -3,6 +3,8 @@
   import { page } from "$app/state";
   import Footer from "$lib/Footer.svelte";
   import Logo from "$lib/Logo.svelte";
+  import GitHubMark from "$lib/GitHubMark.svelte";
+  const REPO = "https://github.com/Tapetide-hq/agentdraft";
   let { children, data } = $props();
   const path = $derived(page.url.pathname);
   // The landing page opens on a dark hero, so its nav floats over that band in white.
@@ -42,10 +44,13 @@
           <!-- Hidden on phones: the hero carries the same action and the bar would overflow. -->
           <a class="btn btn--light nav__cta--wide" href="/dashboard">Open dashboard</a>
         {/if}
+        <a class="nav__gh" href={REPO} target="_blank" rel="noopener" aria-label="agentdraft on GitHub" title="Open source on GitHub">
+          <GitHubMark />
+        </a>
         <form method="POST" action="/logout">
           <button class="btn btn--outline btn--sm" type="submit">Sign out</button>
         </form>
-        <!-- Phone menu: the horizontal links are hidden below 640px, so every app page
+        <!-- Phone menu: the horizontal links are hidden below 960px, so every app page
              stays reachable from here. -->
         <details class="nav__menu">
           <summary aria-label="Open navigation menu">Menu</summary>
@@ -64,6 +69,9 @@
       </div>
       <span class="spacer"></span>
       <div class="nav__cta">
+        <a class="nav__gh" href={REPO} target="_blank" rel="noopener" aria-label="agentdraft on GitHub" title="Open source on GitHub">
+          <GitHubMark />
+        </a>
         <a class="btn" class:btn--light={onLanding} href="/login">Sign in</a>
         <details class="nav__menu">
           <summary aria-label="Open navigation menu">Menu</summary>

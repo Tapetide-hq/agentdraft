@@ -26,14 +26,14 @@
 <div class="page auth-page">
   <div class="container">
     <div class="card auth-card">
-      <h1 class="auth-title">Get started</h1>
+      <h1 class="auth-title">{data?.hosted ? "Sign in" : "Sign in with your API key"}</h1>
       <p class="auth-sub">
         {#if data?.hosted}
-          Sign in with Google to reach your dashboard, publish drafts and create a key for
-          each machine your agents run on.
+          Use your Google account to open the dashboard. From there you can see every draft
+          your agents have published and create API keys for the machines they run on.
         {:else}
-          Paste a scoped API key to open your dashboard. It is stored in an httpOnly cookie
-          on this origin and never exposed to browser scripts.
+          Paste an API key to open the dashboard. The key is kept in a secure cookie and is
+          never visible to scripts running in your browser.
         {/if}
       </p>
 
@@ -53,9 +53,8 @@
           <span class="arrow">&rarr;</span>
         </a>
         <p class="field-hint" style="margin-top:1.25rem">
-          API keys are machine credentials. They publish drafts but cannot sign in here or
-          create further keys, so a key leaked from CI or a dotfile can never take over the
-          account.
+          No password to remember. Sign-in happens through Google, and you create API keys
+          from the dashboard afterwards.
         </p>
       {:else}
         <!-- Self-hosted deployment with no IdP configured: key paste is the only way in. -->
@@ -75,8 +74,8 @@
       {/if}
 
       <p class="auth-terms">
-        By signing in you agree to publish only content you are allowed to share. Published
-        drafts are served as untrusted content from an isolated origin.
+        Only publish content you have the right to share. Anything you publish is shown to
+        readers as an untrusted document, with scripts disabled.
       </p>
     </div>
   </div>

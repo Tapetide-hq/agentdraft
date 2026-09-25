@@ -252,6 +252,29 @@ a:hover {
   align-items: center;
   gap: 0.75rem;
 }
+/* GitHub mark: a 40px round hit area that takes the nav's text colour. */
+.nav__gh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+.nav__gh:hover {
+  color: var(--ink);
+  background: var(--surface-mint);
+}
+.nav--dark .nav__gh {
+  color: rgba(255, 255, 255, 0.85);
+}
+.nav--dark .nav__gh:hover {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.12);
+}
 
 /* Phone menu: a native <details> that only renders below 640px. No JS, closes on
    navigation because the page changes. */

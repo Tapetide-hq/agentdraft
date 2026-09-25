@@ -15,7 +15,7 @@
     <div class="page-head">
       <div>
         <h1>Privacy</h1>
-        <p>Decide who can read the drafts your agents publish.</p>
+        <p>Choose whether the drafts your agents publish can be opened by anyone with the link, or only by you.</p>
       </div>
     </div>
 
@@ -23,9 +23,9 @@
 
     <div class="grid grid--tight">
       <div class="stat">
-        <div class="stat__label">New drafts default to</div>
+        <div class="stat__label">New drafts are</div>
         <div class="stat__value">{defaultPublic ? "Public" : "Private"}</div>
-        <div class="stat__foot">{defaultPublic ? "readable by anyone with the link" : "readable only by you"}</div>
+        <div class="stat__foot">{defaultPublic ? "anyone with the link can open them" : "only you can open them"}</div>
       </div>
       <div class="stat">
         <div class="stat__label">Public drafts</div>
@@ -43,19 +43,19 @@
     <div class="card">
       <div class="row row--between row--wrap" style="gap:1rem">
         <div style="max-width:38rem">
-          <h3 style="margin-bottom:.25rem">New drafts are {defaultPublic ? "public" : "private"}</h3>
+          <h3 style="margin-bottom:.25rem">Default for new drafts: {defaultPublic ? "public" : "private"}</h3>
           <p style="margin:0">
             {#if defaultPublic}
-              Drafts you publish are readable by anyone with the link. Agents publishing from CI
-              will produce public URLs.
+              When an agent publishes a new draft, anyone who has the link can open it without
+              signing in.
             {:else}
-              Drafts you publish are readable only by you. The link still works for you; anyone
-              else who opens it gets a sign-in page.
+              When an agent publishes a new draft, only you can open it. Anyone else who follows
+              the link is asked to sign in.
             {/if}
-            This applies to new drafts only. Your existing {total === 1 ? "draft is" : "drafts are"} not affected.
+            Changing this affects new drafts only. Your existing {total === 1 ? "draft keeps its" : "drafts keep their"} current setting.
           </p>
           {#if form?.defaultChanged}
-            <p class="ok small" style="margin:.75rem 0 0">Saved. New drafts will be {form.nowPublic ? "public" : "private"}.</p>
+            <p class="ok small" style="margin:.75rem 0 0">Saved. From now on new drafts will be {form.nowPublic ? "public" : "private"}.</p>
           {/if}
         </div>
         <form method="POST" action="?/setdefault">
@@ -69,16 +69,17 @@
 
     <!-- EXISTING DRAFTS -->
     <div class="card">
-      <h3 style="margin-bottom:.25rem">Existing drafts</h3>
+      <h3 style="margin-bottom:.25rem">Change all existing drafts at once</h3>
       <p style="max-width:38rem">
-        Changing these affects links you may already have shared. Making everything private
-        means anyone holding an old link sees a sign-in page instead of the document.
+        This updates every draft you have already published. If you make them all private,
+        people you have shared links with will be asked to sign in instead of seeing the
+        document.
       </p>
 
       {#if form?.bulkChanged !== undefined}
         <p class="notice notice--ok">
           {#if form.bulkChanged === 0}
-            No changes. Every draft was already {form.nowPublic ? "public" : "private"}.
+            Nothing changed. Every draft was already {form.nowPublic ? "public" : "private"}.
           {:else}
             {form.bulkChanged} {form.bulkChanged === 1 ? "draft is" : "drafts are"} now {form.nowPublic ? "public" : "private"}.
           {/if}
@@ -132,15 +133,15 @@
 
     <!-- CLI -->
     <div class="card card--flush">
-      <div class="card__head"><h3>From the CLI</h3></div>
+      <div class="card__head"><h3>Do the same from the command line</h3></div>
       <div class="card__body" style="padding:1rem">
         <div class="term">
           <div class="term__bar" aria-hidden="true"><span></span><span></span><span></span></div>
-          <pre><code><span class="prompt">$</span> agentdraft upload plan.md --private       <span class="dim"># publish this one private</span>
-<span class="prompt">$</span> agentdraft visibility private plan.md     <span class="dim"># flip an existing draft</span>
-<span class="prompt">$</span> agentdraft visibility private --default   <span class="dim"># default for new drafts</span>
-<span class="prompt">$</span> agentdraft visibility public --all        <span class="dim"># every existing draft</span>
-<span class="prompt">$</span> agentdraft list                           <span class="dim"># shows a VISIBILITY column</span></code></pre>
+          <pre><code><span class="prompt">$</span> agentdraft upload plan.md --private       <span class="dim"># publish one draft as private</span>
+<span class="prompt">$</span> agentdraft visibility private plan.md     <span class="dim"># make an existing draft private</span>
+<span class="prompt">$</span> agentdraft visibility private --default   <span class="dim"># set the default for new drafts</span>
+<span class="prompt">$</span> agentdraft visibility public --all        <span class="dim"># make every existing draft public</span>
+<span class="prompt">$</span> agentdraft list                           <span class="dim"># list drafts with their visibility</span></code></pre>
         </div>
       </div>
     </div>

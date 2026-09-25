@@ -58,13 +58,13 @@
     <div class="card" class:card--mint={!isPublic}>
       <div class="row row--between row--wrap" style="gap:1rem">
         <div>
-          <h3 style="margin-bottom:.25rem">{isPublic ? "Public by link" : "Private to you"}</h3>
+          <h3 style="margin-bottom:.25rem">{isPublic ? "This draft is public" : "This draft is private"}</h3>
           <p style="margin:0;max-width:36rem">
             {#if isPublic}
-              Anyone with the link can read this draft without signing in.
+              Anyone who has the link can open this draft without signing in.
             {:else}
-              Only you can read this draft. The link is unchanged; anyone else who opens it
-              gets a sign-in page.
+              Only you can open this draft. The link stays the same; anyone else who follows
+              it is asked to sign in.
             {/if}
           </p>
         </div>
@@ -89,9 +89,9 @@
               <option value={v.version_number}>v{v.version_number} — {fmtDate(v.created_at)}</option>
             {/each}
           </select>
-          {#if isMd}<span class="pill">rendered markdown</span>{/if}
+          {#if isMd}<span class="pill">Markdown, rendered</span>{/if}
         </div>
-        <a class="btn btn--outline btn--sm" href={rawSrc} target="_blank" rel="noopener">View raw source</a>
+        <a class="btn btn--outline btn--sm" href={rawSrc} target="_blank" rel="noopener">View original file</a>
       </div>
       <div class="card__body" style="padding:1rem">
         <!-- Served from a SEPARATE origin and sandboxed: no scripts, no same-origin access
@@ -109,7 +109,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Version</th><th>Format</th><th>Size</th><th>Hash</th><th>Git</th><th>Created</th></tr>
+            <tr><th>Version</th><th>Format</th><th>Size</th><th>Checksum</th><th>Git branch</th><th>Published</th></tr>
           </thead>
           <tbody>
             {#each data.versions as v (v.id)}
@@ -142,13 +142,13 @@
       <div class="row row--between row--wrap" style="gap:1rem">
         <div>
           <h3 style="margin-bottom:.25rem">Delete this draft</h3>
-          <p style="margin:0">Its public URL and every version stop working immediately.</p>
+          <p style="margin:0">The link and every version of this draft stop working right away. This cannot be undone.</p>
         </div>
         <form
           method="POST"
           action="?/delete"
           onsubmit={(e) => {
-            if (!confirm("Delete this draft? Its public URL stops working immediately.")) e.preventDefault();
+            if (!confirm("Delete this draft? Its link and every version stop working right away, and this cannot be undone.")) e.preventDefault();
           }}
         >
           <button class="btn btn--danger" type="submit">Delete draft</button>

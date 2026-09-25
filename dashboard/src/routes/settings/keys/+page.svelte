@@ -23,16 +23,20 @@
       <div>
         <h1>API keys</h1>
         <p style="max-width:40rem">
-          One key per machine your agents run on: laptop, remote box, each CI runner. Naming
-          them per machine means you can revoke one without touching the others.
+          An API key lets the agentdraft CLI publish from a machine. Create one key for each
+          machine your agents run on, so you can revoke a single machine later without
+          affecting the others.
         </p>
       </div>
     </div>
 
     {#if !data.canManage}
       <div class="card card--mint">
-        <h3 style="margin-bottom:.25rem">This session cannot manage keys</h3>
-        <p style="margin:0">Keys can only be created from the dashboard after signing in with Google.</p>
+        <h3 style="margin-bottom:.25rem">Sign in with Google to manage keys</h3>
+        <p style="margin:0">
+          You are signed in with an API key, and API keys are not allowed to create or revoke
+          other keys. Sign out, then sign in with Google to manage them here.
+        </p>
       </div>
     {:else}
       {#if form?.newKey}
@@ -43,8 +47,8 @@
             <span class="pill pill--ok">shown once</span>
           </div>
           <p>
-            This is the only time the full key is shown. Store it on that machine and it never
-            needs to be seen again.
+            Copy it now. For your security the full key is shown only once, and you will not be
+            able to see it again after leaving this page.
           </p>
           <div class="row row--wrap">
             <input
@@ -58,7 +62,7 @@
               {copied ? "Copied" : "Copy key"}
             </button>
           </div>
-          <p class="small" style="margin:1.25rem 0 .5rem">Then, on that machine:</p>
+          <p class="small" style="margin:1.25rem 0 .5rem">Run this once on the machine that will use it:</p>
           <div class="term">
             <div class="term__bar" aria-hidden="true"><span></span><span></span><span></span></div>
             <pre><code><span class="prompt">$</span> agentdraft auth set {newKey}</code></pre>
@@ -68,20 +72,20 @@
 
       <div class="split">
         <div class="card">
-          <h3 style="margin-bottom:1.25rem">New machine key</h3>
+          <h3 style="margin-bottom:1.25rem">Create a key</h3>
           <form method="POST" action="?/create">
-            <label for="name">Machine name</label>
+            <label for="name">Key name</label>
             <input id="name" name="name" placeholder="macbook-pro · ci-runner-1 · gpu-box" required />
-            <p class="field-hint">Use something you will recognise months from now when deciding what to revoke.</p>
+            <p class="field-hint">Name it after the machine that will use it, so you know which one to revoke later.</p>
 
-            <span class="label-text">Scopes</span>
-            <div class="row row--wrap" style="gap:1.25rem" role="group" aria-label="Scopes">
-              <label class="check"><input type="checkbox" name="scopes" value="upload" checked /> upload</label>
-              <label class="check"><input type="checkbox" name="scopes" value="read" checked /> read</label>
+            <span class="label-text">Permissions</span>
+            <div class="row row--wrap" style="gap:1.25rem" role="group" aria-label="Permissions">
+              <label class="check"><input type="checkbox" name="scopes" value="upload" checked /> Upload</label>
+              <label class="check"><input type="checkbox" name="scopes" value="read" checked /> Read</label>
             </div>
             <p class="field-hint">
-              Machine keys publish and read. They cannot sign in to this dashboard or create
-              further keys, so a leaked key can never take over the account.
+              Upload lets the machine publish drafts and files. Read lets it list and download
+              them. A key can never sign in to this dashboard or create other keys.
             </p>
             {#if form?.message}<p class="notice notice--error" style="margin-top:1rem">{form.message}</p>{/if}
             <div class="form-actions">
@@ -92,18 +96,18 @@
 
         <div class="card card--flush">
           <div class="card__head">
-            <h3>Your machines</h3>
+            <h3>Your keys</h3>
             <span class="subtle small">{data.keys.filter((k) => !k.revoked_at).length} active</span>
           </div>
           {#if data.keys.length === 0}
             <div class="card__body">
-              <p class="subtle" style="margin:0">No keys yet. Create one for the first machine.</p>
+              <p class="subtle" style="margin:0">You have not created any keys yet. Create one to start publishing from a machine.</p>
             </div>
           {:else}
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Machine</th><th>Prefix</th><th>Scopes</th><th>Last used</th><th>Status</th><th></th></tr>
+                  <tr><th>Name</th><th>Key starts with</th><th>Permissions</th><th>Last used</th><th>Status</th><th></th></tr>
                 </thead>
                 <tbody>
                   {#each data.keys as k (k.id)}
@@ -131,7 +135,7 @@
                             method="POST"
                             action="?/revoke"
                             onsubmit={(e) => {
-                              if (!confirm(`Revoke the key for “${k.name}”? That machine stops publishing immediately.`))
+                              if (!confirm(`Revoke “${k.name}”? Any machine using this key will no longer be able to publish.`))
                                 e.preventDefault();
                             }}
                           >
