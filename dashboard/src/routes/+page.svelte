@@ -257,7 +257,7 @@
 
 <!-- FINAL CTA BAR -->
 <section class="section" style="padding-top:40px">
-  <div class="container" style="text-align:center">
+  <div class="container" style="display:flex;justify-content:center">
     <a class="cta-bar" href={cta.href}>
       Start publishing your agents' plans
       <span class="arrow" aria-hidden="true">&rarr;</span>
