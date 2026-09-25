@@ -30,8 +30,13 @@ var (
 
 var uploadCmd = &cobra.Command{
 	Use:   "upload <file>",
-	Short: "Upload an HTML file (create or update a draft)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Upload a Markdown or HTML file (create or update a draft)",
+	Long: `Upload a Markdown (.md, .markdown, .mdown, .mkd) or HTML file as a draft.
+
+Markdown is rendered server-side for reading; the exact source stays at <url>/raw. HTML
+is served byte-for-byte. Re-uploading the same path creates a new version at the same
+URL; pass --new for a different document or --draft <id> to target a known draft.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
 		absPath, err := filepath.Abs(file)
