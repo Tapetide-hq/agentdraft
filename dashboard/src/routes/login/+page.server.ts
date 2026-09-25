@@ -2,6 +2,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { apiFetch } from "$lib/server/api";
 import { safeNext } from "$lib/server/next";
+import { dev } from "$app/environment";
 
 // Ask the API whether Google OAuth is configured on this deployment. The button is
 // rendered only when it is genuinely usable — showing a dead sign-in button is worse
@@ -71,7 +72,9 @@ export const actions: Actions = {
     cookies.set("ad_key", key, {
       path: "/",
       httpOnly: true,
-      secure: true,
+      // `vite dev` serves plain http://localhost, where a Secure cookie is silently dropped
+      // and sign-in appears to do nothing. `dev` is compile-time false in production.
+      secure: !dev,
       sameSite: "strict",
       maxAge: 60 * 60 * 24 * 30,
     });
