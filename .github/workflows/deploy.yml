@@ -1,0 +1,147 @@
+name: Deploy
+
+# Deploys the three Cloudflare Workers when main changes. One workflow rather than three
+# Cloudflare "Workers Builds" Git connections because this is a monorepo: each worker has
+# its own directory, its own tests, and the dashboard depends on the API being live first.
+#
+# Only the parts whose files changed are deployed, and each part's own checks run before
+# its deploy. D1 migrations are applied before the API worker goes live so new code never
+# runs against an old schema. Secrets (API_KEY_PEPPER, GOOGLE_*, BOOTSTRAP_SECRET) live in
+# Cloudflare and are untouched by `wrangler deploy`; plain vars come from wrangler.jsonc.
+#
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts, D1, R2, KV edit on
+# the account) and CLOUDFLARE_ACCOUNT_ID.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "content-worker/**"
+      - "dashboard/**"
+      - "shared/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Deploy every worker regardless of which files changed"
+        type: boolean
+        default: true
+
+# One deploy at a time; a newer push waits rather than racing an older one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api == 'true' || inputs.all == true }}
+      content: ${{ steps.filter.outputs.content == 'true' || inputs.all == true }}
+      dashboard: ${{ steps.filter.outputs.dashboard == 'true' || inputs.all == true }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          filters: |
+            api:
+              - "worker/**"
+              - "shared/**"
+              - ".github/workflows/deploy.yml"
+            content:
+              - "content-worker/**"
+              - ".github/workflows/deploy.yml"
+            dashboard:
+              - "dashboard/**"
+              - ".github/workflows/deploy.yml"
+
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bun run test
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          packageManager: bun
+          command: d1 migrations apply agentdraft-db --remote
+      - name: Deploy agentdraft-api
+        uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          packageManager: bun
+          command: deploy
+
+  content:
+    needs: changes
+    if: needs.changes.outputs.content == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: content-worker
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - name: Deploy agentdraft-content
+        uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: content-worker
+          packageManager: bun
+          command: deploy
+
+  dashboard:
+    # The dashboard talks to the API through a service binding, so if the API is also
+    # being deployed in this run it goes first. When the API job is skipped this still
+    # runs, because `always()` short-circuits the skipped dependency.
+    needs: [changes, api]
+    if: always() && needs.changes.outputs.dashboard == 'true' && needs.api.result != 'failure'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run test
+      - run: bun run build
+      - name: Deploy agentdraft-dashboard
+        uses: cloudflare/wrangler-action@v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: dashboard
+          packageManager: bun
+          command: deploy

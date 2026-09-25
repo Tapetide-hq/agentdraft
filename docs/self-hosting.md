@@ -100,6 +100,32 @@ cd ../worker        && bun install && bun run deploy
 cd ../dashboard     && bun install && bun run deploy
 ```
 
+### Deploy automatically from GitHub
+
+`.github/workflows/deploy.yml` deploys whichever workers changed on every push to
+`main`, running each worker's typecheck and tests first and applying D1 migrations before
+the API goes live. It needs two repository secrets:
+
+| Secret | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | An API token with **Workers Scripts: Edit**, **D1: Edit**, **Workers R2 Storage: Edit** and **Workers KV Storage: Edit** on your account |
+| `CLOUDFLARE_ACCOUNT_ID` | Shown in the Cloudflare dashboard sidebar, or `wrangler whoami` |
+
+```bash
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set CLOUDFLARE_ACCOUNT_ID
+gh api -X PUT repos/<you>/agentdraft/environments/production
+```
+
+The jobs target a GitHub environment named `production`, so you can add required
+reviewers or a wait timer there if you want a manual gate. To redeploy everything
+without a code change, run the workflow from the Actions tab and leave "Deploy every
+worker" ticked.
+
+One workflow is used rather than a Cloudflare "Workers Builds" Git connection per
+worker because this is a monorepo: the three workers live in separate directories, have
+separate tests, and the dashboard's service binding needs the API deployed first.
+
 ## 6. Bootstrap the first key
 
 ```bash
