@@ -68,11 +68,11 @@ jobs:
           done
           echo "::error::checks still pending after 40 minutes"; exit 1
 
-      - name: Approve and squash-merge
+      # No `gh pr review --approve`: the main ruleset requires zero approving reviews, and
+      # this repository (correctly) forbids GitHub Actions from approving pull requests.
+      - name: Squash-merge
         if: steps.decide.outputs.merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          gh pr review --approve "$PR_URL" --body "Patch/minor bump with green checks; auto-merging."
-          gh pr merge --squash "$PR_URL"
+        run: gh pr merge --squash "$PR_URL"
