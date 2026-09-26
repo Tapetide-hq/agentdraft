@@ -91,7 +91,7 @@ agentdraft file screenshot.png
 ```
 
 ### `agentdraft fetch <url|draft-id>`
-Download served HTML.
+Download a draft's source bytes: the Markdown for a `.md` draft, the HTML otherwise.
 ```
 -o, --output <file>    Write to a file instead of stdout
 --version <n>          Fetch a specific version
@@ -120,6 +120,10 @@ agentdraft config --api-url <url>    Point the CLI at a different instance
 ```
 
 ## Agent usage
+
+The [`agentdraft` skill](../skills/) teaches Claude Code, Codex, Kiro and other agents
+these commands, when to use `upload` versus `file`, and the pitfalls. Install it with
+`npx skills add Tapetide-hq/agentdraft -g`.
 
 ```bash
 agentdraft upload plan.html --project "my-project" --description "Architecture v2"

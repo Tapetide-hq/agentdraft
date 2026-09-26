@@ -68,11 +68,14 @@ func authedClient() (*api.Client, error) {
 	return api.New(cfg.APIURL, creds.APIKey), nil
 }
 
+// truncate shortens s to at most n runes. It counts runes, not bytes, so a title
+// with multibyte characters is never cut mid-codepoint into invalid UTF-8.
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	r := []rune(s)
+	if len(r) <= n {
 		return s
 	}
-	return s[:n-1] + "…"
+	return string(r[:n-1]) + "…"
 }
 
 func init() {

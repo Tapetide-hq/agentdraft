@@ -11,12 +11,13 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "agentdraft",
-	Short: "Publish static HTML and get a stable public URL",
-	Long: `agentdraft publishes static HTML documents (plans, proposals, reports) and
-returns a stable public URL. Built for AI agents, CI pipelines, and developers.
+	Short: "Publish Markdown or HTML and get a stable, versioned URL",
+	Long: `agentdraft publishes Markdown or HTML documents (plans, proposals, reports) and
+returns a stable URL a human can open. Built for AI agents, CI pipelines, and developers.
 
-Uploaded HTML is validated server-side and served byte-for-byte from an isolated
-origin. Every upload to the same file creates a new immutable version.`,
+Markdown is rendered once at upload; HTML is validated server-side and served
+byte-for-byte from an isolated origin. Every upload of the same file creates a new
+immutable version at the same URL. Use 'agentdraft file' for any other file type.`,
 	Version:       version.Version,
 	SilenceUsage:  true,
 	SilenceErrors: true,

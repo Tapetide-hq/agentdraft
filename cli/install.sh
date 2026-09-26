@@ -1,7 +1,6 @@
 #!/bin/sh
 # agentdraft CLI installer.
 #
-#   curl -fsSL https://agentdraft.tapetide.com/install.sh | sh
 #   curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/agentdraft/main/cli/install.sh | sh
 #
 # Env overrides:

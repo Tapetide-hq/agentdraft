@@ -65,7 +65,12 @@ agentdraft fetch <url> -o plan.md    # another agent reads it back
 ```
 
 Point your agent at that command and you are done. There is no build step, no framework,
-and nothing to deploy per document.
+and nothing to deploy per document. To teach Claude Code, Codex, or Kiro the CLI and its
+pitfalls in one step, install the [agent skill](./skills/):
+
+```bash
+npx skills add Tapetide-hq/agentdraft -g
+```
 
 ## How it works
 
