@@ -11,6 +11,13 @@ on:
 # real API key, so it cannot execute in CI. What CI can and must do is prove the script
 # is not broken — a syntax error or a shellcheck fault in the suite would otherwise only
 # surface the next time someone runs it manually, which is exactly when you need it.
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest

@@ -2,6 +2,13 @@ version: 2
 
 project_name: agentdraft
 
+# Every release carries two tags on the same commit: v<semver> (this config, install.sh)
+# and cli/v<semver> (Go module proxy, because the module lives in cli/). Without this
+# goreleaser may treat cli/vX as the "previous" tag and emit an empty changelog.
+git:
+  ignore_tags:
+    - "cli/*"
+
 before:
   hooks:
     - go mod tidy
@@ -39,3 +46,4 @@ release:
   github:
     owner: Tapetide-hq
     name: agentdraft
+  prerelease: auto

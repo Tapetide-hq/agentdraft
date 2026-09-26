@@ -5,12 +5,15 @@ The `agentdraft` CLI is a single Go binary with no runtime dependencies.
 ## Install
 
 ```bash
-# From source (requires Go 1.24+)
-go install github.com/Tapetide-hq/agentdraft/cli@latest
-
-# Or download a release binary
+# Release binary for linux/darwin on amd64/arm64; SHA-256 verified against checksums.txt
 curl -fsSL https://raw.githubusercontent.com/Tapetide-hq/agentdraft/main/cli/install.sh | sh
+
+# Or from source (Go 1.24+). Resolves to the latest tagged release.
+go install github.com/Tapetide-hq/agentdraft/cli@latest
 ```
+
+Windows: download the `.zip` from the [releases page](https://github.com/Tapetide-hq/agentdraft/releases).
+`agentdraft --version` reports the release version either way.
 
 ## Configuration
 

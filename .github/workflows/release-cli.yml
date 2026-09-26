@@ -1,0 +1,138 @@
+name: Release CLI
+
+# Cuts a CLI release. Two ways in:
+#
+#   1. Actions tab -> "Release CLI" -> Run workflow -> version: 0.3.0
+#      The workflow runs the tests, tags main as v0.3.0 AND cli/v0.3.0, then publishes.
+#   2. Push a v* tag by hand (git tag v0.3.0 && git push origin v0.3.0).
+#
+# Both tags are needed: goreleaser and install.sh key off v<semver>; the Go module proxy
+# needs cli/v<semver> because the module lives in the cli/ subdirectory, so
+# `go install github.com/Tapetide-hq/agentdraft/cli@latest` resolves to a real release
+# instead of a pseudo-version of main.
+#
+# Tagging and publishing happen in ONE run on purpose: a tag pushed with GITHUB_TOKEN
+# does not start a new workflow, so a separate "tag then let the tag trigger release"
+# design would silently publish nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver to release, without the leading v (e.g. 0.3.0)"
+        required: true
+        type: string
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build -o /dev/null .
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # The default token cannot push to a branch ruleset-protected ref, but tags
+          # are outside the main ruleset, so it can push the release tags.
+          persist-credentials: true
+
+      - name: Resolve version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eu
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${REF_NAME#v}"
+          fi
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'$version' is not MAJOR.MINOR.PATCH"; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Tag (dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -eu
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists on origin; bump the version"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "agentdraft CLI $VERSION"
+          git tag -a "cli/$TAG" -m "Go module tag for agentdraft CLI $VERSION"
+          git push origin "refs/tags/$TAG" "refs/tags/cli/$TAG"
+
+      - name: Ensure the Go module tag exists (tag push only)
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -eu
+          if ! git ls-remote --exit-code --tags origin "refs/tags/cli/$TAG" >/dev/null; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "cli/$TAG" -m "Go module tag for agentdraft CLI ${TAG#v}" "$TAG"
+            git push origin "refs/tags/cli/$TAG"
+          fi
+
+      - name: Check out the release tag
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: git checkout -q "refs/tags/$TAG"
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+          workdir: cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-test install.sh against the new release
+        env:
+          AGENTDRAFT_VERSION: ${{ steps.v.outputs.tag }}
+          AGENTDRAFT_INSTALL_DIR: ${{ runner.temp }}/bin
+        run: |
+          set -eu
+          sh cli/install.sh
+          "$AGENTDRAFT_INSTALL_DIR/agentdraft" --version | tee /dev/stderr | grep -q "${AGENTDRAFT_VERSION#v}"
