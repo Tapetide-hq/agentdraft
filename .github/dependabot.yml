@@ -1,21 +1,40 @@
 version: 2
+
+# The three JS packages are managed by Bun (bun.lock, no package-lock.json), so they must
+# use the "bun" ecosystem. Declared as "npm" Dependabot cannot rebase or update them; it
+# opens PRs that bump package.json only, and deploy.yml's `bun install --frozen-lockfile`
+# would then fail on main. Minor and patch bumps are grouped into one PR per package so
+# the auto-merge workflow handles a single green PR instead of five racing ones.
 updates:
   - package-ecosystem: gomod
     directory: /cli
     schedule: { interval: weekly }
     commit-message: { prefix: "chore(deps)" }
-  - package-ecosystem: npm
+
+  - package-ecosystem: bun
     directory: /worker
     schedule: { interval: weekly }
     commit-message: { prefix: "chore(deps)" }
-  - package-ecosystem: npm
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: bun
     directory: /content-worker
     schedule: { interval: weekly }
     commit-message: { prefix: "chore(deps)" }
-  - package-ecosystem: npm
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: bun
     directory: /dashboard
     schedule: { interval: weekly }
     commit-message: { prefix: "chore(deps)" }
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
