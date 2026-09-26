@@ -49,7 +49,10 @@ requests only; Dependabot patch and minor bumps are approved and auto-merged onc
 majors wait for a human.
 
 Merging to `main` deploys the three Cloudflare Workers automatically (`deploy.yml`),
-migrations first. Nothing else is needed for the hosted service.
+migrations first. Nothing else is needed for the hosted service. The one wrinkle: a merge
+made by the Dependabot auto-merge workflow uses the Actions token, which does not fire
+push-triggered workflows, so that workflow dispatches `deploy.yml` itself for exactly the
+parts the PR touched.
 
 The CLI is released on demand: **Actions → Release CLI → Run workflow**, enter the
 version (`0.3.0`). The workflow runs the Go tests, tags `main` as `v0.3.0` and
