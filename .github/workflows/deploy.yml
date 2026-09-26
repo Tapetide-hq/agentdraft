@@ -27,6 +27,20 @@ on:
         description: "Deploy every worker regardless of which files changed"
         type: boolean
         default: true
+      # Per-part switches for programmatic dispatch (dependabot-auto-merge.yml passes
+      # all=false plus exactly the parts the merged PR touched). Humans can leave them off.
+      api:
+        description: "Deploy agentdraft-api (worker/, shared/)"
+        type: boolean
+        default: false
+      content:
+        description: "Deploy agentdraft-content (content-worker/)"
+        type: boolean
+        default: false
+      dashboard:
+        description: "Deploy agentdraft-dashboard (dashboard/)"
+        type: boolean
+        default: false
 
 # One deploy at a time; a newer push waits rather than racing an older one.
 concurrency:
@@ -40,9 +54,9 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ steps.filter.outputs.api == 'true' || inputs.all == true }}
-      content: ${{ steps.filter.outputs.content == 'true' || inputs.all == true }}
-      dashboard: ${{ steps.filter.outputs.dashboard == 'true' || inputs.all == true }}
+      api: ${{ steps.filter.outputs.api == 'true' || inputs.all == true || inputs.api == true }}
+      content: ${{ steps.filter.outputs.content == 'true' || inputs.all == true || inputs.content == true }}
+      dashboard: ${{ steps.filter.outputs.dashboard == 'true' || inputs.all == true || inputs.dashboard == true }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4.0.3

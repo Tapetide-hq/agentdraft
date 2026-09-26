@@ -17,6 +17,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
+  actions: write # to dispatch deploy.yml after the merge
 
 jobs:
   auto-merge:
@@ -75,4 +76,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --squash "$PR_URL"
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          # --match-head-commit: never merge a head that moved after the checks above were
+          # evaluated. The retry covers "Base branch was modified", which GitHub returns
+          # when another PR lands in the seconds between mergeability being computed and
+          # the merge itself. Grouped Dependabot PRs arrive together, so this is routine.
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge --squash --match-head-commit "$SHA" "$PR_URL"; then
+              exit 0
+            fi
+            echo "merge attempt $attempt failed; retrying in 30s"
+            sleep 30
+          done
+          echo "::error::could not merge after 5 attempts"
+          exit 1
+
+      # A merge made with GITHUB_TOKEN does not fire push-triggered workflows, so on its
+      # own an auto-merged bump would sit on main undeployed (and untested on main).
+      # workflow_dispatch is the documented exception, so hand the deploy off explicitly,
+      # limited to the parts this PR touched. deploy.yml runs typecheck and tests before
+      # each deploy, so CI coverage on main is preserved too.
+      - name: Deploy the workers this PR touched
+        if: steps.decide.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          files=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path')
+          api=false; content=false; dashboard=false
+          echo "$files" | grep -qE '^(worker|shared)/' && api=true
+          echo "$files" | grep -qE '^content-worker/' && content=true
+          echo "$files" | grep -qE '^dashboard/' && dashboard=true
+          if [ "$api" = false ] && [ "$content" = false ] && [ "$dashboard" = false ]; then
+            echo "nothing deployable changed"
+            exit 0
+          fi
+          echo "dispatching deploy: api=$api content=$content dashboard=$dashboard"
+          gh workflow run deploy.yml --ref main \
+            -f all=false -f api="$api" -f content="$content" -f dashboard="$dashboard"
