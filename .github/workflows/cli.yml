@@ -1,12 +1,20 @@
 name: CLI
 
+# Test-only. Releases are cut by release-cli.yml (Actions -> "Release CLI" -> Run workflow).
+
 on:
   push:
     branches: [main]
-    tags: ["v*"]
     paths: ["cli/**", ".github/workflows/cli.yml"]
   pull_request:
     paths: ["cli/**", ".github/workflows/cli.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -18,29 +26,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.24"
+          go-version-file: cli/go.mod
           cache-dependency-path: cli/go.sum
       - run: go vet ./...
       - run: go test ./...
       - run: go build -o /dev/null .
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v7
-        with:
-          go-version: "1.24"
-      - uses: goreleaser/goreleaser-action@v7
-        with:
-          version: "~> v2"
-          args: release --clean
-          workdir: cli
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

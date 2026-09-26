@@ -41,6 +41,24 @@ The CLI does transport-only pre-checks and must not attempt to re-implement the 
 - Never commit secrets. `wrangler.jsonc` holds only resource ids, never tokens.
 - Commits use conventional-commit prefixes (`feat:`, `fix:`, `docs:`, `chore:`).
 
+## CI and releases
+
+Every PR runs the checks for the parts it touches (`cli.yml`, `worker.yml`,
+`dashboard.yml`, `tests.yml`, `lint-workflows.yml`). `main` accepts squash-merged pull
+requests only; Dependabot patch and minor bumps are approved and auto-merged once green,
+majors wait for a human.
+
+Merging to `main` deploys the three Cloudflare Workers automatically (`deploy.yml`),
+migrations first. Nothing else is needed for the hosted service.
+
+The CLI is released on demand: **Actions → Release CLI → Run workflow**, enter the
+version (`0.3.0`). The workflow runs the Go tests, tags `main` as `v0.3.0` and
+`cli/v0.3.0`, builds all six binaries with goreleaser, publishes the GitHub release with
+`checksums.txt`, and smoke-tests `cli/install.sh` against it. The `cli/` tag is what makes
+`go install github.com/Tapetide-hq/agentdraft/cli@latest` resolve to that release, so
+never push one without the other. Pushing a `v*` tag by hand also works; the workflow adds
+the missing `cli/` tag itself.
+
 ## Security
 
 Please report vulnerabilities privately — see [SECURITY.md](./SECURITY.md).
