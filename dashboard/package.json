@@ -12,7 +12,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
-    "@sveltejs/adapter-cloudflare": "7.2.9",
+    "@sveltejs/adapter-cloudflare": "8.0.0",
     "@sveltejs/kit": "2.70.3",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "svelte": "5.57.2",
