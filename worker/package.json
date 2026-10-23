@@ -17,10 +17,10 @@
     "parse5": "7.2.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261013.1",
+    "@cloudflare/workers-types": "5.20261019.1",
     "@types/node": "22",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
-    "wrangler": "4.150.0"
+    "wrangler": "4.151.3"
   }
 }
