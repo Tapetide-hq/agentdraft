@@ -27,7 +27,7 @@ Every version is validated and served in one of two modes, recorded as
 | Mode | Validation | Serving CSP |
 |---|---|---|
 | `static` (default) | This whole policy | `script-src 'none'`, `connect-src 'none'` |
-| `interactive` (opt-in) | Transport checks only: `E_EMPTY`, `E_TOO_LARGE`, `E_ENCODING` | `sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads` (never `allow-same-origin`), with `https:` scripts, styles, connections, and frames |
+| `interactive` (opt-in) | Transport checks only: `E_EMPTY`, `E_TOO_LARGE`, `E_ENCODING` | `sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox` (never `allow-same-origin`), with `https:` scripts, styles, connections, and frames |
 
 In interactive mode the document is expected to carry active content, and the
 blocklist below no longer applies. Containment comes from the opaque origin the header

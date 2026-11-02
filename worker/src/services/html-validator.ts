@@ -218,12 +218,19 @@ export function validateHtml(input: string, opts: ValidateOptions = {}): Validat
   }
 
   // ---- charset declaration check ----
-  const charsetMatch = input.match(/<meta[^>]*charset\s*=\s*["']?\s*([a-z0-9\-_:]+)/i);
-  if (charsetMatch) {
-    const cs = charsetMatch[1].toLowerCase();
+  const checkCharset = (declared: string) => {
+    const cs = declared.toLowerCase();
     if (cs !== "utf-8" && cs !== "utf8") {
       addErr("E_ENCODING", `Declared charset "${cs}" is not utf-8.`);
     }
+  };
+  // Static mode scans the raw bytes, independent of how the parser reads them. An
+  // interactive document may hold markup inside a script string literal, where a raw
+  // scan would mistake it for the document's own declaration, so that mode checks the
+  // parsed <meta> elements instead (see the walk below).
+  if (!opts.interactive) {
+    const charsetMatch = input.match(/<meta[^>]*charset\s*=\s*["']?\s*([a-z0-9\-_:]+)/i);
+    if (charsetMatch) checkCharset(charsetMatch[1]);
   }
 
   // ---- parse ----
@@ -303,6 +310,14 @@ export function validateHtml(input: string, opts: ValidateOptions = {}): Validat
         const he = (getAttr(el, "http-equiv") ?? "").toLowerCase();
         if (he === "refresh") addErr("E_META_REFRESH", "Blocked <meta http-equiv=refresh>.");
         else if (he) addErr("E_ATTR_UNSAFE", `Blocked <meta http-equiv="${he}">.`);
+        if (opts.interactive && !foreign) {
+          const declared =
+            getAttr(el, "charset") ??
+            (he === "content-type"
+              ? /charset\s*=\s*["']?\s*([a-z0-9\-_:]+)/i.exec(getAttr(el, "content") ?? "")?.[1]
+              : undefined);
+          if (declared) checkCharset(declared.trim());
+        }
       }
 
       // attribute checks

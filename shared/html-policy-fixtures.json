@@ -70,6 +70,8 @@
     {"id": "interactive_ok_iframe_svg_script_js_url", "mode": "interactive", "expect_ok": true, "expect_error_codes": [], "html": "<!DOCTYPE html><html><head><title>Embed</title></head><body><iframe src=\"https://www.example.com/embed\"></iframe><svg><script>1</script></svg><a href=\"javascript:void(0)\">x</a></body></html>"},
     {"id": "interactive_block_bad_charset", "mode": "interactive", "expect_ok": false, "expect_error_codes": ["E_ENCODING"], "html": "<!DOCTYPE html><html><head><meta charset=\"utf-7\"><title>x</title></head><body><script>1</script></body></html>"},
     {"id": "interactive_block_nul", "mode": "interactive", "expect_ok": false, "expect_error_codes": ["E_ENCODING"], "html": "<!DOCTYPE html><html><head><title>x</title></head><body>a\u0000b</body></html>"},
-    {"id": "interactive_block_empty", "mode": "interactive", "expect_ok": false, "expect_error_codes": ["E_EMPTY"], "html": "   \n  "}
+    {"id": "interactive_block_empty", "mode": "interactive", "expect_ok": false, "expect_error_codes": ["E_EMPTY"], "html": "   \n  "},
+    {"id": "interactive_ok_charset_inside_script_string", "mode": "interactive", "expect_ok": true, "expect_error_codes": [], "html": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Export</title></head><body><script>const tpl = '<meta charset=\"windows-1252\">' + document.body.innerHTML;</script></body></html>"},
+    {"id": "interactive_block_http_equiv_charset", "mode": "interactive", "expect_ok": false, "expect_error_codes": ["E_ENCODING"], "html": "<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-7\"><title>x</title></head><body>x</body></html>"}
   ]
 }

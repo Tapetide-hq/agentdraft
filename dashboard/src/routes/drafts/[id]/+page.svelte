@@ -22,7 +22,7 @@
   // allow-same-origin here: with allow-scripts it lets the framed page lift its own
   // sandbox.
   const INTERACTIVE_FRAME_SANDBOX =
-    "allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads";
+    "allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox";
   const frameSandbox = $derived(isInteractive ? INTERACTIVE_FRAME_SANDBOX : "");
   // Preview the selected version from the CONTENT origin in a sandboxed iframe.
   const previewSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}`);

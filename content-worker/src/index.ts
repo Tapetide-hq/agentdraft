@@ -216,11 +216,14 @@ function renderedKeyFor(sourceKey: string): string {
 // origin); the dashboard is a DIFFERENT origin, so the browser refused the frame and the
 // preview rendered as Chrome's blank subframe error page. The comment asserted the
 // opposite of the behaviour, which is why it survived review.
-function buildCSP(dashboardOrigin: string | undefined): string {
+function frameAncestors(dashboardOrigin: string | undefined): string {
   // Fall back to 'none' rather than 'self' when unset: if the embedding origin is not
   // configured, refusing all framing is the safe default. 'self' would be a lie either
   // way, and a permissive fallback on an untrusted-content origin is the wrong risk.
-  const frameAncestors = dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
+  return dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
+}
+
+function buildCSP(dashboardOrigin: string | undefined): string {
   return [
     "default-src 'none'",
     "img-src https: data:",
@@ -230,7 +233,7 @@ function buildCSP(dashboardOrigin: string | undefined): string {
     "script-src 'none'",
     "connect-src 'none'",
     "form-action 'none'",
-    frameAncestors,
+    frameAncestors(dashboardOrigin),
     "base-uri 'none'",
   ].join("; ");
 }
@@ -252,8 +255,11 @@ function buildCSP(dashboardOrigin: string | undefined): string {
 // origin or the dashboard serves script-capable content without its own header policy
 // (static drafts are script-src 'none', files are `sandbox`, interactive drafts carry
 // this sandbox). The opaque opener cannot script the popup either way. Keep it so.
+//
+// No allow-downloads: a script-built blob download would be attributed to this host,
+// which makes it a malware-distribution and reputation risk for a shared origin.
 const INTERACTIVE_SANDBOX =
-  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads";
+  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox";
 
 // Interactive drafts may load script, style, and data from any https origin (charting
 // libraries from a CDN are the main use case). The document's author already controls
@@ -263,7 +269,6 @@ const INTERACTIVE_SANDBOX =
 // form-action stays 'none': submit handlers still run (allow-forms), but a form never
 // posts anywhere, so a published page cannot collect input by plain form submission.
 function buildInteractiveCSP(dashboardOrigin: string | undefined): string {
-  const frameAncestors = dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
   return [
     INTERACTIVE_SANDBOX,
     "default-src 'none'",
@@ -276,7 +281,7 @@ function buildInteractiveCSP(dashboardOrigin: string | undefined): string {
     "worker-src blob:",
     "frame-src https:",
     "form-action 'none'",
-    frameAncestors,
+    frameAncestors(dashboardOrigin),
     "base-uri 'none'",
   ].join("; ");
 }

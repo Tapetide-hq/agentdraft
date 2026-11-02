@@ -124,13 +124,15 @@ capped at 1 MiB.
 By default a draft is **static**: active content is rejected at upload and the page is
 served with `script-src 'none'`. Send `"interactive": true` to publish a page whose
 JavaScript runs — inline or CDN scripts, event handlers, form controls, `<link>`
-stylesheets, `<iframe>` embeds.
+stylesheets, `<iframe>` embeds. Embedded frames inherit the sandbox, so third-party
+embeds that need their own cookies or storage (video players, maps) may not work.
 
 - Validation keeps only the transport checks (`E_EMPTY`, `E_TOO_LARGE`, `E_ENCODING`).
 - The page is served with a header-level CSP `sandbox` **without** `allow-same-origin`,
   so it runs in an **opaque origin**: no cookies, no `localStorage`/`sessionStorage`/
   IndexedDB, no service workers, and no same-origin access to any other draft, file, or
-  the dashboard. Pages that need storage must keep state in memory.
+  the dashboard. Pages that need storage must keep state in memory. Script-initiated
+  downloads (for example a blob "Export CSV") are blocked.
 - Scripts, styles, `fetch`, images, fonts, media, and frames may load from any `https:`
   origin. Forms fire `submit` events, but `form-action 'none'` means a form never posts
   anywhere — handle `submit` in script.

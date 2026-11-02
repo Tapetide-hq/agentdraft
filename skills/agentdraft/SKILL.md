@@ -115,6 +115,8 @@ agentdraft upload dashboard.html --interactive
 
 - Inline `<script>`, CDN libraries (`https:` only, e.g. Chart.js from jsDelivr), `on*=`
   handlers, form controls, `<link>` stylesheets, and `<iframe>` embeds are all accepted.
+  Embeds inherit the sandbox, so players and maps that need their own cookies may not
+  load. Script-triggered downloads are blocked; show data in the page instead.
 - The page runs in a **sandbox with an opaque origin**. `localStorage`,
   `sessionStorage`, IndexedDB, and `document.cookie` throw `SecurityError`, so keep
   state in memory. Forms fire `submit` but never post anywhere: call

@@ -110,10 +110,11 @@ jobs:
   content:
     # The content worker reads D1 columns that a migration in the same run may add, and
     # migrations are applied by the API job. Deploying in parallel would let new content
-    # code query a column that does not exist yet and fail every draft request. Same
-    # `always()` pattern as the dashboard: still runs when the API job is skipped.
+    # code query a column that does not exist yet and fail every draft request. Runs
+    # only when the API job succeeded or was skipped (no worker changes, so no
+    # migration): a CANCELLED API job may have stopped before migrating.
     needs: [changes, api]
-    if: always() && needs.changes.outputs.content == 'true' && needs.api.result != 'failure'
+    if: always() && needs.changes.outputs.content == 'true' && (needs.api.result == 'success' || needs.api.result == 'skipped')
     runs-on: ubuntu-latest
     environment: production
     defaults:

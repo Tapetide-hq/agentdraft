@@ -43,6 +43,10 @@ upload.post("/", async (c) => {
   // page without repeating the flag would otherwise get an E_SCRIPT rejection for a
   // document it already published. A new draft with no opinion is static.
   //
+  // A retry carrying an Idempotency-Key this draft has already seen inherits from the
+  // version that key created, not from whatever is current now: it must validate exactly
+  // as the original did, or a mode change in between turns the replay into a 422.
+  //
   // Ownership is in the WHERE clause so this lookup cannot reveal another account's
   // draft; a foreign or missing draft_id falls through to 'static' and is then rejected
   // with the proper 404/403 by the resolution step below.
@@ -50,13 +54,16 @@ upload.post("/", async (c) => {
   if (typeof body.interactive === "boolean") {
     renderMode = body.interactive ? "interactive" : "static";
   } else if (typeof body.draft_id === "string" && body.draft_id) {
-    const current = await c.env.DB.prepare(
-      `SELECT v.render_mode FROM drafts d JOIN draft_versions v ON v.id = d.current_version_id
+    const inherited = await c.env.DB.prepare(
+      `SELECT v.render_mode FROM drafts d
+         JOIN draft_versions v ON v.id = COALESCE(
+           (SELECT r.id FROM draft_versions r WHERE r.draft_id = d.id AND r.idempotency_key = ?),
+           d.current_version_id)
         WHERE d.id = ? AND d.account_id = ? AND d.deleted_at IS NULL`,
     )
-      .bind(body.draft_id, auth.account.id)
+      .bind(c.req.header("idempotency-key") ?? null, body.draft_id, auth.account.id)
       .first<{ render_mode: string }>();
-    if (current?.render_mode === "interactive") renderMode = "interactive";
+    if (inherited?.render_mode === "interactive") renderMode = "interactive";
   }
 
   // Accept EITHER `html` or `markdown`. `markdown` may also arrive in `html` when the

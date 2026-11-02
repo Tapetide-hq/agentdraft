@@ -29,7 +29,7 @@ const PRIVATE_STATIC_CSP = [
 // allow-same-origin: with allow-scripts it lets the page lift its own sandbox, and on
 // this origin that means running as the dashboard.
 const INTERACTIVE_SANDBOX =
-  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads";
+  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox";
 
 const PRIVATE_INTERACTIVE_CSP = [
   INTERACTIVE_SANDBOX,
