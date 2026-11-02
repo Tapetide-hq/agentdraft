@@ -22,12 +22,16 @@ export const MAX_MD_BYTES = 1024 * 1024; // 1 MiB of source Markdown
 // own validator. That rejection is correct: the policy must not special-case an
 // element just because we happened to emit it. The fix belongs in the renderer, which
 // substitutes inert Unicode ballot glyphs carrying no interactive semantics.
+//
+// The trailing space is ours to emit: since marked 17 the default checkbox renderer
+// supplies the gap before the item text, so an override that omits it glues the glyph
+// to the label ("☐API worker").
 marked.use({
   renderer: {
     checkbox({ checked }: { checked: boolean }): string {
       return checked
-        ? '<span class="task-box task-box--done" aria-hidden="true">\u2611</span>'
-        : '<span class="task-box" aria-hidden="true">\u2610</span>';
+        ? '<span class="task-box task-box--done" aria-hidden="true">\u2611</span> '
+        : '<span class="task-box" aria-hidden="true">\u2610</span> ';
     },
   },
 });
