@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
+  import Seo from "#lib/Seo.svelte";
   let { data } = $props();
   const cta = $derived(data.authed ? { href: "/dashboard", text: "Open dashboard" } : { href: "/login", text: "Get started" });
 </script>

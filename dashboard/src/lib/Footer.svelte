@@ -1,6 +1,6 @@
 <script lang="ts">
   // Shared dark footer. Carries the open-source + Tapetide attribution on every page.
-  import Logo from "$lib/Logo.svelte";
+  import Logo from "#lib/Logo.svelte";
   let { authed = false }: { authed?: boolean } = $props();
   const year = new Date().getFullYear();
   const GH = "https://github.com/Tapetide-hq/agentdraft";

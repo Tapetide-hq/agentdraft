@@ -1,9 +1,9 @@
 <script lang="ts">
-  import "$lib/styles.css";
+  import "#lib/styles.css";
   import { page } from "$app/state";
-  import Footer from "$lib/Footer.svelte";
-  import Logo from "$lib/Logo.svelte";
-  import GitHubMark from "$lib/GitHubMark.svelte";
+  import Footer from "#lib/Footer.svelte";
+  import Logo from "#lib/Logo.svelte";
+  import GitHubMark from "#lib/GitHubMark.svelte";
   const REPO = "https://github.com/Tapetide-hq/agentdraft";
   let { children, data } = $props();
   const path = $derived(page.url.pathname);

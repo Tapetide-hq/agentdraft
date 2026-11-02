@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
-  import { fmtDate } from "$lib/format";
+  import Seo from "#lib/Seo.svelte";
+  import { fmtDate } from "#lib/format.ts";
   let { data, form } = $props();
 
   let copied = $state(false);

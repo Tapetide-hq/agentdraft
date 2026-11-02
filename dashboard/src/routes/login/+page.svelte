@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
+  import Seo from "#lib/Seo.svelte";
   let { form, data } = $props();
 
   const errors: Record<string, string> = {

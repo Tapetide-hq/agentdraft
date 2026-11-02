@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
+  import Seo from "#lib/Seo.svelte";
   let { data, form } = $props();
 </script>
 

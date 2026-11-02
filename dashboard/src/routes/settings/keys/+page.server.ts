@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
-import { apiJson, apiFetch } from "$lib/server/api";
-import { requireKey } from "$lib/server/guard";
+import { apiJson, apiFetch } from "#lib/server/api.ts";
+import { requireKey } from "#lib/server/guard.ts";
 import { fail } from "@sveltejs/kit";
 
 interface KeyRow {
