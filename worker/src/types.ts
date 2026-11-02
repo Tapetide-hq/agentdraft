@@ -80,6 +80,8 @@ export interface DraftVersion {
   git_commit_sha: string | null;
   git_dirty: number | null;
   source_format: string | null;
+  // 'static' | 'interactive' — decides both the upload validation and the serving CSP.
+  render_mode: string | null;
   created_at: string;
 }
 
@@ -109,6 +111,9 @@ export interface UploadRequest {
   title?: string;
   description?: string;
   metadata?: UploadMetadata;
+  // Opt in to the interactive render mode. Absent on a revision inherits the draft's
+  // current mode; absent on a new draft means static.
+  interactive?: boolean;
 }
 
 // A stored arbitrary file (the file lane — NOT a draft). Files are unversioned: each

@@ -72,6 +72,56 @@ non-UTF-8 bodies are rejected.
 The CLI performs only transport-level pre-checks (size, UTF-8, empty). The server is the
 sole validation authority — a second full validator would drift from it.
 
+## Interactive drafts
+
+An uploader may opt a version into the **interactive** render mode (`"interactive": true`,
+`agentdraft upload --interactive`). Its scripts, event handlers, and form controls are
+accepted, so the upload validator is no longer a security control for that version; the
+boundary moves entirely to how it is served.
+
+**The boundary is an opaque origin.** An interactive version is served with a
+header-level CSP `sandbox allow-scripts …` that never includes `allow-same-origin`. The
+browser gives the document a unique opaque origin even when it is opened top-level, so
+its scripts:
+
+- cannot read or write cookies, which also rules out cookie tossing onto the parent
+  domain;
+- cannot use `localStorage`, `sessionStorage`, IndexedDB, or the Cache API, and cannot
+  register a service worker that would sit in front of other drafts;
+- cannot read any other draft, file, or the dashboard as same-origin, and send
+  `Origin: null`, which the API's CORS policy and SvelteKit's CSRF check both refuse.
+
+`allow-same-origin` combined with `allow-scripts` lets a page remove its own sandbox, so
+the flag must never be added to any interactive policy.
+
+`allow-popups-to-escape-sandbox` is kept so that `target=_blank` links open their
+destination normally. A popup the page opens is unsandboxed, but the opaque opener cannot
+read, write, or script it. The flag stays safe only under this invariant: **no URL on the
+content origin or the dashboard serves script-capable content without its own header
+policy.** Static drafts are `script-src 'none'`, files are `sandbox`, and every
+interactive draft carries its own sandbox, so opening any of them in an escaped popup
+grants nothing. The policy is defined in three
+places that are kept in sync by hand: the content worker, the API's private-draft path,
+and the dashboard preview iframe.
+
+**Private interactive drafts** stream from the dashboard origin like any private draft.
+The same header sandbox applies there, so the page runs as an opaque origin rather than
+as the dashboard; it is only ever served to the draft's owner.
+
+**Fail closed.** Only an explicit `render_mode = 'interactive'` on the version row gets
+the sandboxed policy; any other value is served with the static `script-src 'none'`
+policy. The mode is stored per version, so older static versions keep their static
+policy.
+
+**What it does not prevent.** A script can read what a viewer types into the page and
+send it to any `https:` endpoint, so an interactive page can phish more convincingly
+than a static one. `form-action 'none'` blocks plain form posts, which removes the
+no-code version of that attack but not the scripted one. The mitigations are the
+existing ones: Google-verified accounts in hosted mode, per-draft disable (HTTP 451),
+and `noindex`. A dedicated registrable domain for interactive content, kept off
+`tapetide.com` the way `googleusercontent.com` is, would also isolate the main domain's
+reputation from abusive pages.
+
 ## Byte-for-byte serving vs CDN HTML injection (self-hosting hazard)
 
 AgentDraft promises that a published document is served byte-for-byte. Cloudflare zone
@@ -163,8 +213,9 @@ so a direct navigation is sandboxed even with no embedding iframe) plus
 
 That means a private draft renders on the **dashboard** origin, which is the property the
 two-origin split otherwise avoids. It is accepted deliberately and mitigated by the
-header-level `sandbox` + `script-src 'none'`; public drafts keep the stricter isolated path
-unchanged.
+header-level `sandbox` + `script-src 'none'` (for an interactive version, the opaque-origin
+sandbox described under [Interactive drafts](#interactive-drafts)); public drafts keep the
+stricter isolated path unchanged.
 
 **Existence is not disclosed.** A non-owner receives `404` on every visibility and content
 endpoint, never `403`. The content origin's `302` does reveal that *some* draft exists at a

@@ -75,7 +75,10 @@
                     <a href={`/drafts/${d.id}`}>{d.title || "Untitled"}</a>
                     <div class="small subtle mono">{d.id}</div>
                   </td>
-                  <td><span class="pill">{d.source_format ?? "html"}</span></td>
+                  <td>
+                    <span class="pill">{d.source_format ?? "html"}</span>
+                    {#if d.render_mode === "interactive"}<span class="pill pill--outline">interactive</span>{/if}
+                  </td>
                   <td><span class="pill pill--dark">v{d.published_version ?? 1}</span></td>
                   <td>
                     {#if d.is_public === 1}
