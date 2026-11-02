@@ -26,6 +26,7 @@ var (
 	upIdempotency string
 	upPrivate     bool
 	upPublic      bool
+	upInteractive bool
 )
 
 var uploadCmd = &cobra.Command{
@@ -35,7 +36,12 @@ var uploadCmd = &cobra.Command{
 
 Markdown is rendered server-side for reading; the exact source stays at <url>/raw. HTML
 is served byte-for-byte. Re-uploading the same path creates a new version at the same
-URL; pass --new for a different document or --draft <id> to target a known draft.`,
+URL; pass --new for a different document or --draft <id> to target a known draft.
+
+By default a document is static: <script>, event handlers, and form controls are
+rejected. Pass --interactive to publish a page whose JavaScript runs, inside a sandbox
+with no cookies or storage. A revision keeps the draft's current mode unless you pass
+--interactive or --interactive=false.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		file := args[0]
@@ -119,6 +125,13 @@ URL; pass --new for a different document or --draft <id> to target a known draft
 			req.Public = &v
 		}
 
+		// Render mode. Sent only when the flag was given, so a plain re-upload of an
+		// interactive page stays interactive instead of failing on its own <script>.
+		if cmd.Flags().Changed("interactive") {
+			v := upInteractive
+			req.Interactive = &v
+		}
+
 		resp, err := client.Upload(req, upIdempotency)
 		if err != nil {
 			return err
@@ -134,6 +147,9 @@ URL; pass --new for a different document or --draft <id> to target a known draft
 		fmt.Printf("Draft:   %s\n", resp.DraftID)
 		fmt.Printf("Version: %d\n", resp.VersionNumber)
 		fmt.Printf("Title:   %s\n", resp.Title)
+		if resp.RenderMode == "interactive" {
+			fmt.Println("Mode:    interactive (scripts run in a sandbox)")
+		}
 		if resp.IdempotentReplay {
 			fmt.Println("(idempotent replay — no new version created)")
 		}
@@ -188,6 +204,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&upIdempotency, "idempotency-key", "", "dedupe retries")
 	uploadCmd.Flags().BoolVar(&upPrivate, "private", false, "create the draft private (owner-only); overrides the account default")
 	uploadCmd.Flags().BoolVar(&upPublic, "public", false, "create the draft public; overrides the account default")
+	uploadCmd.Flags().BoolVar(&upInteractive, "interactive", false, "allow JavaScript, event handlers and form controls; the page runs in a sandbox (revisions inherit the mode)")
 	// Mutually exclusive: asking for both is a mistake worth surfacing rather than
 	// silently letting one win.
 	uploadCmd.MarkFlagsMutuallyExclusive("private", "public")
