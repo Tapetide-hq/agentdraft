@@ -4,7 +4,7 @@ description: Publish agent-written documents (plans, proposals, reports, audits 
 license: MIT
 metadata:
   author: Tapetide
-  version: 2.0.0
+  version: 2.1.0
   homepage: https://github.com/Tapetide-hq/agentdraft
   hermes:
     tags: [agentdraft, publishing, file-upload, review, cli, handoff]
@@ -56,8 +56,9 @@ agentdraft upload plan.md
 - Markdown (`.md`, `.markdown`, `.mdown`, `.mkd`) is rendered server-side into a readable
   page; the exact source stays at `<url>/raw`. HTML is served byte-for-byte.
 - Give the file a real `# Heading` or `<title>`; that becomes the title the human sees.
-- Style HTML with an inline `<style>` block. `<link>` to an external stylesheet, any
-  `<script>`, and any charting library are rejected (see Constraints).
+- Style HTML with an inline `<style>` block. By default `<link>` to an external
+  stylesheet, any `<script>`, and any charting library are rejected (see Constraints).
+  For a page that needs JavaScript, use `--interactive` (below).
 - Group related documents: `--project <name>` (created if the name is new).
 
 ### Revising: same path → same URL, new version
@@ -101,6 +102,30 @@ agentdraft visibility public --all       # every existing draft; reports how man
 `--private` / `--public` on `upload` apply only when the draft is **created**. Re-uploading
 never changes visibility; use `visibility` for that.
 
+### Interactive pages (JavaScript)
+
+The default is a **static** document. When the human needs something they can click
+through, such as a chart with tooltips, a calculator, a filterable table, tabs, or a
+small simulation, publish it interactive:
+
+```bash
+agentdraft upload dashboard.html --interactive
+# Mode:    interactive (scripts run in a sandbox)
+```
+
+- Inline `<script>`, CDN libraries (`https:` only, e.g. Chart.js from jsDelivr), `on*=`
+  handlers, form controls, `<link>` stylesheets, and `<iframe>` embeds are all accepted.
+  Embeds inherit the sandbox, so players and maps that need their own cookies may not
+  load. Script-triggered downloads are blocked; show data in the page instead.
+- The page runs in a **sandbox with an opaque origin**. `localStorage`,
+  `sessionStorage`, IndexedDB, and `document.cookie` throw `SecurityError`, so keep
+  state in memory. Forms fire `submit` but never post anywhere: call
+  `event.preventDefault()` and handle the data in script.
+- The mode is per version. A plain re-upload of the same path **keeps** interactive;
+  `--interactive=false` switches a revision back to static.
+- Prefer static for anything that reads fine without JS. It is the stricter policy and
+  renders everywhere, including with JavaScript disabled.
+
 ## Upload any file
 
 ```bash
@@ -136,6 +161,8 @@ accidentally save a login page as "the document".
 ## Constraints: what the server rejects
 
 The server is the single authority; the CLI prints its error code verbatim and exits 1.
+For an `--interactive` upload only `E_TOO_LARGE`, `E_ENCODING`, `E_EMPTY`, and the
+auth/rate-limit codes apply; the active-content codes below are static-mode only.
 
 | Code | Cause |
 |---|---|
@@ -168,13 +195,15 @@ Exit codes: **0** success, **1** any failure — safe for `&&` chains and CI gat
 5. **Using `file` for a document.** A `.md`/`.html` you want *read* goes through `upload`;
    `file` would force it to download.
 6. **Using `upload` for a binary.** It only accepts UTF-8 text; use `file`.
-7. **External stylesheet or JS.** `E_LINK` / `E_SCRIPT`. Inline `<style>` only, no charts
-   from a CDN.
+7. **External stylesheet or JS in a static draft.** `E_LINK` / `E_SCRIPT`. Inline
+   `<style>` only, or publish with `--interactive` if the page genuinely needs JS.
 8. **Retrying without an idempotency key** in unattended loops.
 9. **Promising a public link when the account default is private.** Check `whoami`, or
    pass `--public` explicitly.
 10. **Publishing secrets.** A URL holder is a reader. Scrub tokens, keys, internal
     hostnames, and customer data first. Files are public, always.
+11. **Using browser storage in an interactive page.** The sandbox has no storage or
+    cookies; `localStorage` throws. Keep state in variables.
 
 ## Verification checklist
 

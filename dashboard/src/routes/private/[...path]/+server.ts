@@ -81,6 +81,7 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
     "x-agentdraft-draft-id",
     "x-agentdraft-version",
     "x-agentdraft-visibility",
+    "x-agentdraft-mode",
   ]) {
     const v = res.headers.get(h);
     if (v) headers.set(h, v);
