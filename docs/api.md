@@ -42,6 +42,8 @@ the server decide.
   "draft_id": "abc123",        // optional; update an existing draft
   "title": "…",                // optional; override extracted <title>
   "description": "…",          // optional
+  "public": true,              // optional; NEW drafts only, overrides the account default
+  "interactive": true,         // optional; see "Interactive drafts" below
   "metadata": { "git_branch": "main", "git_commit_sha": "…", "git_dirty": false, "cli_version": "0.1.0" }
 }
 ```
@@ -57,6 +59,8 @@ the server decide.
   "version_url": ".../d/abc123/v/3",
   "title": "…",
   "warnings": [],
+  "source_format": "html",
+  "render_mode": "static",
   "idempotent_replay": false,
   "content_deduplicated": false
 }
@@ -114,6 +118,27 @@ Rendering is **not** sanitising. Markdown permits raw HTML passthrough, so the r
 output is run through the *same* authoritative validator as a direct HTML upload — a
 `.md` file containing `<script>` is rejected with 422 `E_SCRIPT`. Markdown source is
 capped at 1 MiB.
+
+### Interactive drafts
+
+By default a draft is **static**: active content is rejected at upload and the page is
+served with `script-src 'none'`. Send `"interactive": true` to publish a page whose
+JavaScript runs — inline or CDN scripts, event handlers, form controls, `<link>`
+stylesheets, `<iframe>` embeds.
+
+- Validation keeps only the transport checks (`E_EMPTY`, `E_TOO_LARGE`, `E_ENCODING`).
+- The page is served with a header-level CSP `sandbox` **without** `allow-same-origin`,
+  so it runs in an **opaque origin**: no cookies, no `localStorage`/`sessionStorage`/
+  IndexedDB, no service workers, and no same-origin access to any other draft, file, or
+  the dashboard. Pages that need storage must keep state in memory.
+- Scripts, styles, `fetch`, images, fonts, media, and frames may load from any `https:`
+  origin. Forms fire `submit` events, but `form-action 'none'` means a form never posts
+  anywhere — handle `submit` in script.
+- The mode belongs to the **version**. Omit `interactive` on a revision and it inherits
+  the draft's current mode; send `false` to force static. The response reports
+  `render_mode` (`static` | `interactive`), and served responses carry
+  `X-AgentDraft-Mode`.
+- Works for Markdown too: the rendered output is validated and served in the chosen mode.
 
 `content_deduplicated: true` means these exact bytes already existed for this draft, so
 no new R2 object was written. A new version row is still created (history and its git
@@ -179,9 +204,10 @@ GET /d/:id/raw        Alias (same bytes)
 GET /d/:id/v/:n       Specific version (immutable, cached 1y)
 GET /d/:id/v/:n/raw   Alias
 ```
-Response headers include a strict CSP, `X-Robots-Tag: noindex`,
-`Cross-Origin-Resource-Policy`, `X-AgentDraft-Draft-Id`, `X-AgentDraft-Version`, and an `ETag`
-of the content hash. Disabled drafts return 451; missing 404.
+Response headers include a strict CSP (the opaque-origin sandbox policy for an
+interactive version), `X-Robots-Tag: noindex`, `Cross-Origin-Resource-Policy`,
+`X-AgentDraft-Draft-Id`, `X-AgentDraft-Version`, `X-AgentDraft-Mode`, and an `ETag` of the
+content hash. Disabled drafts return 451; missing 404.
 
 **Private drafts `302` to the dashboard**, they are never served here. This origin serves
 attacker-controlled HTML, so a session must never be readable on it — which means it

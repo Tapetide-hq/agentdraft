@@ -87,6 +87,19 @@ const UNSAFE_ATTRS = new Set(["srcdoc", "ping"]);
 
 const DANGEROUS_SCHEMES = ["javascript:", "vbscript:", "file:", "blob:", "data:text/html"];
 
+// The only checks that still apply to an INTERACTIVE upload. An interactive document is
+// expected to carry scripts, handlers, and form controls; its isolation comes from being
+// served in an opaque-origin CSP sandbox (see shared/html-policy.md), not from this
+// blocklist. What remains are the transport properties the storage and serving paths
+// depend on regardless of mode.
+const TRANSPORT_CODES = new Set(["E_EMPTY", "E_TOO_LARGE", "E_ENCODING"]);
+
+export interface ValidateOptions {
+  // Accept active content. Only valid when the version is served with the interactive
+  // sandbox policy — never validate in this mode and then serve statically-trusted.
+  interactive?: boolean;
+}
+
 // Decode HTML numeric + a few named entities enough to defeat scheme obfuscation,
 // then strip all ASCII whitespace/control chars and lowercase. This is deliberately
 // aggressive: we only use the normalized form for scheme detection, never for storage.
@@ -168,11 +181,12 @@ function textContent(el: Element): string {
   return out;
 }
 
-export function validateHtml(input: string): ValidationResult {
+export function validateHtml(input: string, opts: ValidateOptions = {}): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
   const seen = new Set<string>();
   const addErr = (code: string, message: string) => {
+    if (opts.interactive && !TRANSPORT_CODES.has(code)) return;
     if (seen.has(code)) return; // one of each code is enough
     seen.add(code);
     errors.push({ code, message });

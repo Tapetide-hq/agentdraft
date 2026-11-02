@@ -6,6 +6,47 @@ import { renderedKey } from "../services/storage.js";
 
 const drafts = new Hono<{ Bindings: Env; Variables: { auth: AuthContext } }>();
 
+// CSPs for a PRIVATE draft, which is streamed from the dashboard origin (see
+// /:id/content). They mirror the content worker's policies, plus a header-level sandbox
+// on BOTH, because here the document shares an origin with the session.
+const PRIVATE_STATIC_CSP = [
+  "default-src 'none'",
+  "img-src https: data:",
+  "style-src 'unsafe-inline'",
+  "font-src https: data:",
+  "media-src https:",
+  "script-src 'none'",
+  "connect-src 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+  // sandbox in the HEADER, not just the iframe attribute: a direct navigation to
+  // this URL has no embedding iframe to carry the attribute.
+  "sandbox allow-popups",
+].join("; ");
+
+// MIRROR of INTERACTIVE_SANDBOX in content-worker/src/index.ts. NEVER add
+// allow-same-origin: with allow-scripts it lets the page lift its own sandbox, and on
+// this origin that means running as the dashboard.
+const INTERACTIVE_SANDBOX =
+  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads";
+
+const PRIVATE_INTERACTIVE_CSP = [
+  INTERACTIVE_SANDBOX,
+  "default-src 'none'",
+  "script-src 'unsafe-inline' 'unsafe-eval' https: blob:",
+  "style-src 'unsafe-inline' https:",
+  "img-src https: data: blob:",
+  "font-src https: data:",
+  "media-src https: data: blob:",
+  "connect-src https:",
+  "worker-src blob:",
+  "frame-src https:",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+].join("; ");
+
 function contentUrls(env: Env, draftId: string) {
   const base = env.CONTENT_BASE_URL.replace(/\/$/, "");
   return {
@@ -23,7 +64,8 @@ drafts.get("/", async (c) => {
   // a correlated subquery instead of duplicating the column onto drafts (which would
   // then need keeping in sync on every upload — a drift bug waiting to happen).
   const fmt =
-    "(SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format";
+    "(SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format, " +
+    "(SELECT v.render_mode FROM draft_versions v WHERE v.id = drafts.current_version_id) AS render_mode";
   const sql = project
     ? `SELECT drafts.*, ${fmt} FROM drafts WHERE account_id = ? AND project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`
     : `SELECT drafts.*, ${fmt} FROM drafts WHERE account_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`;
@@ -40,13 +82,13 @@ drafts.get("/:id", async (c) => {
   const auth = c.get("auth");
   const id = c.req.param("id");
   const draft = await c.env.DB.prepare(
-    "SELECT drafts.*, (SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format FROM drafts WHERE id = ? AND account_id = ? AND deleted_at IS NULL",
+    "SELECT drafts.*, (SELECT v.source_format FROM draft_versions v WHERE v.id = drafts.current_version_id) AS source_format, (SELECT v.render_mode FROM draft_versions v WHERE v.id = drafts.current_version_id) AS render_mode FROM drafts WHERE id = ? AND account_id = ? AND deleted_at IS NULL",
   )
     .bind(id, auth.account.id)
     .first<Draft>();
   if (!draft) return jsonError(c, 404, "E_DRAFT_NOT_FOUND", "Draft not found.");
   const versions = await c.env.DB.prepare(
-    "SELECT id, version_number, content_hash, file_size, title, original_filename, cli_version, git_branch, git_commit_sha, git_dirty, source_format, created_at FROM draft_versions WHERE draft_id = ? ORDER BY version_number DESC",
+    "SELECT id, version_number, content_hash, file_size, title, original_filename, cli_version, git_branch, git_commit_sha, git_dirty, source_format, render_mode, created_at FROM draft_versions WHERE draft_id = ? ORDER BY version_number DESC",
   )
     .bind(id)
     .all();
@@ -157,26 +199,19 @@ drafts.get("/:id/content", async (c) => {
   //
   // sandbox is applied by the embedding page too; this is the defence that survives
   // someone opening the URL directly.
+  //
+  // An interactive version runs its scripts HERE, on the dashboard origin, so the
+  // header sandbox is what keeps them out of it: without allow-same-origin the document
+  // is an opaque origin that cannot read the session cookie, call the dashboard as
+  // same-origin, or touch its storage. Anything but an explicit 'interactive' gets the
+  // static policy.
+  const interactive = version.render_mode === "interactive";
   return new Response(obj.body, {
     status: 200,
     headers: {
       "Content-Type":
         wantRaw && isMd ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8",
-      "Content-Security-Policy": [
-        "default-src 'none'",
-        "img-src https: data:",
-        "style-src 'unsafe-inline'",
-        "font-src https: data:",
-        "media-src https:",
-        "script-src 'none'",
-        "connect-src 'none'",
-        "form-action 'none'",
-        "frame-ancestors 'self'",
-        "base-uri 'none'",
-        // sandbox in the HEADER, not just the iframe attribute: a direct navigation to
-        // this URL has no embedding iframe to carry the attribute.
-        "sandbox allow-popups",
-      ].join("; "),
+      "Content-Security-Policy": interactive ? PRIVATE_INTERACTIVE_CSP : PRIVATE_STATIC_CSP,
       "X-Content-Type-Options": "nosniff",
       "X-Robots-Tag": "noindex, nofollow",
       "Referrer-Policy": "no-referrer",
@@ -186,6 +221,7 @@ drafts.get("/:id/content", async (c) => {
       "X-AgentDraft-Draft-Id": draft.id,
       "X-AgentDraft-Version": String(version.version_number),
       "X-AgentDraft-Visibility": draft.is_public ? "public" : "private",
+      "X-AgentDraft-Mode": interactive ? "interactive" : "static",
     },
   });
 });

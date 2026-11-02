@@ -48,6 +48,8 @@ uploaded before.
 --idempotency-key <k>  Dedupe retries (same key = same version)
 --private              Create it owner-only (overrides the account default)
 --public               Create it public (overrides the account default)
+--interactive          Allow JavaScript, event handlers and form controls; the page
+                       runs in a sandbox (revisions inherit the mode)
 ```
 Output: public URL, draft id, version number, title. Warnings print to stderr.
 Blocked HTML fails with the server's validation error codes.
@@ -55,6 +57,11 @@ Blocked HTML fails with the server's validation error codes.
 `--private` / `--public` apply only when the draft is CREATED. Re-uploading to an existing
 draft never changes its visibility — silently flipping a link you already shared would be a
 nasty surprise. Use `agentdraft visibility` for that.
+
+`--interactive` publishes a page whose scripts run, served in an opaque-origin sandbox
+(no cookies or storage). Unlike visibility, the mode is per **version**: a plain
+re-upload keeps the draft's current mode, and `--interactive=false` switches a revision
+back to static. See [Interactive drafts](api.md#interactive-drafts).
 
 ### `agentdraft visibility <public|private> [draft-id|url|file]`
 Change who can read a draft. The URL never changes.

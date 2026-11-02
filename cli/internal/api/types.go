@@ -20,6 +20,10 @@ type UploadRequest struct {
 	// omitempty would drop `false` and silently publish a draft the user asked to keep
 	// private, which is the one failure mode this field must not have.
 	Public      *bool           `json:"public,omitempty"`
+	// Interactive selects the render mode for THIS version. A pointer for the same
+	// reason as Public: nil lets a revision inherit the draft's current mode, while an
+	// explicit false forces static.
+	Interactive *bool           `json:"interactive,omitempty"`
 	Metadata    *UploadMetadata `json:"metadata,omitempty"`
 }
 
@@ -39,6 +43,7 @@ type UploadResponse struct {
 	VersionURL       string            `json:"version_url"`
 	Title            string            `json:"title"`
 	SourceFormat     string            `json:"source_format"`
+	RenderMode       string            `json:"render_mode"`
 	Warnings         []ValidationError `json:"warnings"`
 	IdempotentReplay bool              `json:"idempotent_replay"`
 }

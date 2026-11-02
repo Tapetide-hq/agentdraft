@@ -54,6 +54,9 @@ last uploaded to.
 --idempotency-key <k>      Same key → same version on replay; prints "(idempotent replay …)".
 --private                  Create the draft owner-only. Only applies on CREATE.
 --public                   Create the draft readable by URL. Only applies on CREATE.
+--interactive              Accept <script>, on*= handlers, form controls; serve the page in
+                           an opaque-origin sandbox. Per version; revisions inherit it.
+                           --interactive=false forces a static revision.
 ```
 
 `--private` and `--public` are mutually exclusive. Neither changes an existing draft.

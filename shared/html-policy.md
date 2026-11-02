@@ -19,6 +19,25 @@ The failure mode we optimise against is **accepting a dangerous document**. Reje
 safe document is an acceptable cost, so the policy is deliberately conservative and
 errs toward rejection on anything ambiguous.
 
+## Render modes
+
+Every version is validated and served in one of two modes, recorded as
+`draft_versions.render_mode`:
+
+| Mode | Validation | Serving CSP |
+|---|---|---|
+| `static` (default) | This whole policy | `script-src 'none'`, `connect-src 'none'` |
+| `interactive` (opt-in) | Transport checks only: `E_EMPTY`, `E_TOO_LARGE`, `E_ENCODING` | `sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads` (never `allow-same-origin`), with `https:` scripts, styles, connections, and frames |
+
+In interactive mode the document is expected to carry active content, and the
+blocklist below no longer applies. Containment comes from the opaque origin the header
+sandbox creates (see the "Interactive drafts" section of `SECURITY.md`). The two
+decisions are coupled through the stored mode: a version validated as interactive is
+only ever served with the sandboxed policy, and anything other than an explicit
+`interactive` is served statically.
+
+The rest of this document specifies the **static** mode.
+
 ## Error codes
 
 Stable, machine-readable identifiers. The CLI and the API return the same codes.

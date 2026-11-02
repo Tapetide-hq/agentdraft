@@ -10,6 +10,7 @@ interface Draft {
   public_url: string;
   project_id: string | null;
   source_format: string | null;
+  render_mode: string | null;
   // 0/1 from D1, not a boolean.
   is_public: number;
 }

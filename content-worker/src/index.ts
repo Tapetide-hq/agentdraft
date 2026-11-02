@@ -196,6 +196,7 @@ interface VersionRow {
   object_key: string;
   content_hash: string;
   source_format: string | null;
+  render_mode: string | null;
 }
 
 // Companion key holding the rendered HTML for a Markdown version. Mirrors
@@ -234,13 +235,62 @@ function buildCSP(dashboardOrigin: string | undefined): string {
   ].join("; ");
 }
 
+// MIRROR of INTERACTIVE_SANDBOX in worker/src/routes/drafts.ts (the private-draft path).
+//
+// The isolation boundary for an interactive draft. The header-level sandbox turns the
+// document into an OPAQUE origin even when opened top-level, so its scripts cannot read
+// or set cookies (no cookie tossing onto the parent domain), cannot use this origin's
+// storage, cannot register a service worker over other drafts, and cannot read any
+// other draft or file as same-origin. Every interactive draft is isolated from every
+// other one, and from the static documents served beside it.
+//
+// NEVER add allow-same-origin. Together with allow-scripts it lets the document remove
+// its own sandbox, which collapses every guarantee above.
+//
+// allow-popups-to-escape-sandbox is deliberate: without it every target=_blank link
+// opens the destination site sandboxed and broken. It is safe only while NO URL on this
+// origin or the dashboard serves script-capable content without its own header policy
+// (static drafts are script-src 'none', files are `sandbox`, interactive drafts carry
+// this sandbox). The opaque opener cannot script the popup either way. Keep it so.
+const INTERACTIVE_SANDBOX =
+  "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads";
+
+// Interactive drafts may load script, style, and data from any https origin (charting
+// libraries from a CDN are the main use case). The document's author already controls
+// everything it does, so the network allowances add no capability over what an inline
+// script could do with an <img> beacon; containment comes from the sandbox above.
+//
+// form-action stays 'none': submit handlers still run (allow-forms), but a form never
+// posts anywhere, so a published page cannot collect input by plain form submission.
+function buildInteractiveCSP(dashboardOrigin: string | undefined): string {
+  const frameAncestors = dashboardOrigin ? `frame-ancestors ${dashboardOrigin}` : "frame-ancestors 'none'";
+  return [
+    INTERACTIVE_SANDBOX,
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'unsafe-eval' https: blob:",
+    "style-src 'unsafe-inline' https:",
+    "img-src https: data: blob:",
+    "font-src https: data:",
+    "media-src https: data: blob:",
+    "connect-src https:",
+    "worker-src blob:",
+    "frame-src https:",
+    "form-action 'none'",
+    frameAncestors,
+    "base-uri 'none'",
+  ].join("; ");
+}
+
 function securityHeaders(
   dashboardOrigin: string | undefined,
+  interactive: boolean,
   extra: Record<string, string> = {},
 ): Record<string, string> {
   return {
     "Content-Type": "text/html; charset=utf-8",
-    "Content-Security-Policy": buildCSP(dashboardOrigin),
+    "Content-Security-Policy": interactive
+      ? buildInteractiveCSP(dashboardOrigin)
+      : buildCSP(dashboardOrigin),
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",
     "Referrer-Policy": "no-referrer",
@@ -414,19 +464,19 @@ export default {
     let version: VersionRow | null = null;
     if (explicitVersion != null) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE draft_id = ? AND version_number = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format, render_mode FROM draft_versions WHERE draft_id = ? AND version_number = ?",
       )
         .bind(draftId, explicitVersion)
         .first<VersionRow>();
     } else if (draft.current_version_id) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE id = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format, render_mode FROM draft_versions WHERE id = ?",
       )
         .bind(draft.current_version_id)
         .first<VersionRow>();
     } else if (draft.published_version != null) {
       version = await env.DB.prepare(
-        "SELECT id, version_number, object_key, content_hash, source_format FROM draft_versions WHERE draft_id = ? AND version_number = ?",
+        "SELECT id, version_number, object_key, content_hash, source_format, render_mode FROM draft_versions WHERE draft_id = ? AND version_number = ?",
       )
         .bind(draftId, draft.published_version)
         .first<VersionRow>();
@@ -465,13 +515,19 @@ export default {
     // vary the tag by representation to keep conditional requests correct.
     const repEtag = serveRendered ? `"${version.content_hash}-r"` : etag;
 
-    const headers = securityHeaders(env.DASHBOARD_ORIGIN, {
+    // The mode belongs to the VERSION and applies to every representation of it,
+    // /raw included. Anything other than an explicit 'interactive' gets the static
+    // policy, so an unexpected value fails closed.
+    const interactive = version.render_mode === "interactive";
+
+    const headers = securityHeaders(env.DASHBOARD_ORIGIN, interactive, {
       "Content-Type": contentType,
       "Cache-Control": cacheControl,
       ETag: repEtag,
       "X-AgentDraft-Draft-Id": draftId,
       "X-AgentDraft-Version": String(version.version_number),
       "X-AgentDraft-Format": isMd ? "md" : "html",
+      "X-AgentDraft-Mode": interactive ? "interactive" : "static",
     });
 
     // Honour conditional requests BEFORE touching R2. Emitting an ETag without

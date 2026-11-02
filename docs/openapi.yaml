@@ -38,6 +38,16 @@ components:
         draft_id: { type: string }
         title: { type: string }
         description: { type: string }
+        public:
+          type: boolean
+          description: NEW drafts only; overrides the account default visibility.
+        interactive:
+          type: boolean
+          description: >-
+            Render mode for this version. true accepts scripts, event handlers, and form
+            controls and serves the page in an opaque-origin CSP sandbox. Omitted on a
+            revision, the draft's current mode is inherited; omitted on a new draft, the
+            version is static.
         metadata:
           type: object
           properties:
@@ -56,6 +66,8 @@ components:
         raw_url: { type: string, format: uri }
         version_url: { type: string, format: uri }
         title: { type: string }
+        source_format: { type: string, enum: [html, md] }
+        render_mode: { type: string, enum: [static, interactive] }
         idempotent_replay: { type: boolean }
         content_deduplicated:
           type: boolean
