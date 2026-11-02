@@ -34,6 +34,13 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # svelte-check refuses TypeScript 7 installed as `typescript`: it needs 6 there plus 7
+    # under an alias (@typescript/native) with --tsgo, and @sveltejs/kit 3 peers on
+    # typescript ^6. A major bump as `typescript` can never pass CI, so skip it; adopt 7
+    # by hand through the alias when the Svelte toolchain is ready.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
