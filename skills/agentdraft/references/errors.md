@@ -9,9 +9,13 @@ failures may add a bulleted list of individual `<code>: <message>` findings.
 Applies to HTML uploads and to the HTML produced by rendering a Markdown upload. Fix the
 document and re-upload to the same path.
 
+These are **static-mode** rules. An `--interactive` upload is checked only for
+`E_EMPTY`, `E_TOO_LARGE`, and `E_ENCODING`. If the document genuinely needs JavaScript,
+re-upload it with `--interactive` instead of stripping the script.
+
 | Code | Trigger | Fix |
 |---|---|---|
-| `E_SCRIPT` | `<script>` element | Remove all JavaScript. No charting libraries. |
+| `E_SCRIPT` | `<script>` element | Remove the JavaScript, or publish with `--interactive`. |
 | `E_EVENT_HANDLER` | Any `on*=` attribute (`onclick`, `onload`, …) | Remove the attribute. |
 | `E_LINK` | `<link>` element | Inline the CSS in a `<style>` block. No external fonts. |
 | `E_FORM` | `<form>`, `<input>`, `<textarea>`, `<select>`, `<button>` | Use static text or a table. |

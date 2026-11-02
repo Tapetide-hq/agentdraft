@@ -15,6 +15,15 @@
   const activeVersion = $derived(selected ?? draft.published_version ?? 1);
   const active = $derived(data.versions.find((v) => v.version_number === activeVersion));
   const isMd = $derived((active?.source_format ?? "html") === "md");
+  // Fails CLOSED: only an explicit 'interactive' version gets script permissions.
+  const isInteractive = $derived(active?.render_mode === "interactive");
+  // The iframe attribute is a second gate on top of the content origin's header
+  // sandbox; the effective policy is the intersection of the two. NEVER add
+  // allow-same-origin here: with allow-scripts it lets the framed page lift its own
+  // sandbox.
+  const INTERACTIVE_FRAME_SANDBOX =
+    "allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox";
+  const frameSandbox = $derived(isInteractive ? INTERACTIVE_FRAME_SANDBOX : "");
   // Preview the selected version from the CONTENT origin in a sandboxed iframe.
   const previewSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}`);
   const rawSrc = $derived(`${data.contentBase}/d/${draft.id}/v/${activeVersion}/raw`);
@@ -37,6 +46,7 @@
         <div class="row row--wrap" style="gap:.5rem;margin-top:.5rem">
           <span class="pill pill--dark">v{draft.published_version ?? 1}</span>
           <span class="pill">{isMd ? "markdown" : "html"}</span>
+          {#if isInteractive}<span class="pill pill--outline">interactive</span>{/if}
           {#if isPublic}
             <span class="pill pill--ok">public</span>
           {:else}
@@ -94,9 +104,16 @@
         <a class="btn btn--outline btn--sm" href={rawSrc} target="_blank" rel="noopener">View original file</a>
       </div>
       <div class="card__body" style="padding:1rem">
-        <!-- Served from a SEPARATE origin and sandboxed: no scripts, no same-origin access
-             to this dashboard. Defense in depth over the content-origin CSP. -->
-        <iframe class="preview-frame" title="draft preview" src={previewSrc} sandbox=""></iframe>
+        <!-- Served from a SEPARATE origin and sandboxed: no same-origin access to this
+             dashboard, and no scripts unless the version is interactive. Defense in
+             depth over the content-origin CSP.
+
+             Keyed on src AND sandbox so switching versions builds a fresh iframe:
+             sandbox flags are fixed when a navigation starts, so updating the attribute
+             on a live frame could load the new version under the old flags. -->
+        {#key `${previewSrc}|${frameSandbox}`}
+          <iframe class="preview-frame" title="draft preview" sandbox={frameSandbox} src={previewSrc}></iframe>
+        {/key}
       </div>
     </div>
 
@@ -121,7 +138,10 @@
                     <button class="pill" type="button" style="border:0;cursor:pointer" onclick={() => (selected = v.version_number)}>v{v.version_number}</button>
                   {/if}
                 </td>
-                <td><span class="pill pill--outline">{v.source_format ?? "html"}</span></td>
+                <td>
+                  <span class="pill pill--outline">{v.source_format ?? "html"}</span>
+                  {#if v.render_mode === "interactive"}<span class="pill pill--outline">interactive</span>{/if}
+                </td>
                 <td class="subtle num">{(v.file_size / 1024).toFixed(1)} KB</td>
                 <td class="mono subtle" title={v.content_hash}>{v.content_hash.slice(0, 10)}&hellip;</td>
                 <td class="mono subtle">

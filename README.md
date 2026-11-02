@@ -147,6 +147,10 @@ Uploaded documents are treated as hostile, because they are:
 - **Markdown rendering is not sanitising.** Markdown permits raw HTML passthrough, so
   rendered output goes through the *same* validator. A `.md` file containing `<script>`
   is rejected.
+- **Interactive pages are opt-in and sandboxed.** `agentdraft upload --interactive`
+  publishes a page whose JavaScript runs, served with a header CSP `sandbox` and never
+  `allow-same-origin`, so it gets an opaque origin of its own: no cookies, no storage,
+  no reach into other drafts or the dashboard. See [SECURITY.md](SECURITY.md#interactive-drafts).
 - **Separate origin, always.** Documents are served from an origin that never holds a
   session cookie, so a CSP bypass in a published page cannot reach a dashboard session.
 - **Invite-only publishing.** Scoped, revocable API keys; no anonymous uploads by design,

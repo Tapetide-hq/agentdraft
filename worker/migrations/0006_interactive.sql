@@ -1,0 +1,15 @@
+-- Interactive drafts.
+--
+-- render_mode records how a version is SERVED:
+--   'static'      -> today's contract: active content is rejected at upload and the page
+--                    is served with script-src 'none'.
+--   'interactive' -> the uploader opted in. Scripts, event handlers, and form controls
+--                    are accepted, and the page is served inside a CSP sandbox WITHOUT
+--                    allow-same-origin, so it runs in an opaque origin of its own (no
+--                    cookies, no storage, no reach into other drafts or the dashboard).
+--
+-- Per VERSION, not per draft: the content worker serves a specific version, and an old
+-- static version must keep its static policy even after a later interactive upload.
+--
+-- Defaults to 'static' so every pre-existing version keeps its current behaviour.
+ALTER TABLE draft_versions ADD COLUMN render_mode TEXT NOT NULL DEFAULT 'static';

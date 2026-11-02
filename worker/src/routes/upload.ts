@@ -13,7 +13,8 @@ type Vars = { Variables: { auth: AuthContext }; Bindings: Env };
 const upload = new Hono<Vars>();
 
 // POST /api/upload
-// Body: { html, filename?, project_id?, draft_id?, title?, description?, metadata? }
+// Body: { html, filename?, project_id?, draft_id?, title?, description?, metadata?,
+//         public?, interactive? }
 // Header: Idempotency-Key (optional) — dedupes agent retries.
 upload.post("/", async (c) => {
   const auth = c.get("auth");
@@ -32,6 +33,37 @@ upload.post("/", async (c) => {
     (typeof body.metadata !== "object" || Array.isArray(body.metadata))
   ) {
     return jsonError(c, 400, "E_BAD_FIELD", "Field 'metadata' must be an object.");
+  }
+  if (body.interactive !== undefined && body.interactive !== null && typeof body.interactive !== "boolean") {
+    return jsonError(c, 400, "E_BAD_FIELD", "Field 'interactive' must be a boolean.");
+  }
+
+  // Render mode for THIS version. Explicit wins. When the caller says nothing, a
+  // revision inherits the draft's current mode: an agent re-uploading its interactive
+  // page without repeating the flag would otherwise get an E_SCRIPT rejection for a
+  // document it already published. A new draft with no opinion is static.
+  //
+  // A retry carrying an Idempotency-Key this draft has already seen inherits from the
+  // version that key created, not from whatever is current now: it must validate exactly
+  // as the original did, or a mode change in between turns the replay into a 422.
+  //
+  // Ownership is in the WHERE clause so this lookup cannot reveal another account's
+  // draft; a foreign or missing draft_id falls through to 'static' and is then rejected
+  // with the proper 404/403 by the resolution step below.
+  let renderMode: "static" | "interactive" = "static";
+  if (typeof body.interactive === "boolean") {
+    renderMode = body.interactive ? "interactive" : "static";
+  } else if (typeof body.draft_id === "string" && body.draft_id) {
+    const inherited = await c.env.DB.prepare(
+      `SELECT v.render_mode FROM drafts d
+         JOIN draft_versions v ON v.id = COALESCE(
+           (SELECT r.id FROM draft_versions r WHERE r.draft_id = d.id AND r.idempotency_key = ?),
+           d.current_version_id)
+        WHERE d.id = ? AND d.account_id = ? AND d.deleted_at IS NULL`,
+    )
+      .bind(c.req.header("idempotency-key") ?? null, body.draft_id, auth.account.id)
+      .first<{ render_mode: string }>();
+    if (inherited?.render_mode === "interactive") renderMode = "interactive";
   }
 
   // Accept EITHER `html` or `markdown`. `markdown` may also arrive in `html` when the
@@ -89,7 +121,11 @@ upload.post("/", async (c) => {
   // raw HTML passthrough, so a .md file containing <script> produces a real script tag.
   // Rendering is NOT sanitising: the validator is what decides, exactly as for a direct
   // HTML upload.
-  const result = validateHtml(html);
+  //
+  // Interactive mode skips the active-content checks. That is only safe because the
+  // content worker serves an interactive version inside an opaque-origin sandbox; the
+  // two decisions are tied together by the render_mode stored on the version row.
+  const result = validateHtml(html, { interactive: renderMode === "interactive" });
   if (!result.ok) {
     return c.json(
       {
@@ -259,8 +295,8 @@ upload.post("/", async (c) => {
       `INSERT INTO draft_versions
         (id, draft_id, version_number, object_key, content_hash, file_size, title,
          original_filename, created_by_key_id, idempotency_key, source_ip, cli_version,
-         git_branch, git_commit_sha, git_dirty, source_format)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         git_branch, git_commit_sha, git_dirty, source_format, render_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       versionId,
       draft.id,
@@ -278,6 +314,7 @@ upload.post("/", async (c) => {
       typeof meta.git_commit_sha === "string" ? meta.git_commit_sha : null,
       gitDirty,
       sourceFormat,
+      renderMode,
     ),
     c.env.DB.prepare(
       `UPDATE drafts
@@ -316,6 +353,7 @@ function makeResponse(
     title: v.title,
     warnings,
     source_format: v.source_format ?? "html",
+    render_mode: v.render_mode ?? "static",
     idempotent_replay: idempotentReplay,
     // True when these exact bytes already existed for this draft, so no new R2 object
     // was written. A new version row is still created.

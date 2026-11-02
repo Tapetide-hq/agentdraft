@@ -15,6 +15,8 @@ interface Version {
   git_commit_sha: string | null;
   git_dirty: number | null;
   source_format: string | null;
+  // 'static' | 'interactive'. Null on rows from an API that predates the column.
+  render_mode: string | null;
   created_at: string;
 }
 interface Draft {
