@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { apiFetch } from "$lib/server/api";
-import { safeNext } from "$lib/server/next";
+import { apiFetch } from "#lib/server/api.ts";
+import { safeNext } from "#lib/server/next.ts";
 
 // GET /auth/google — kick off Google sign-in.
 //
@@ -45,5 +45,7 @@ export const GET: RequestHandler = async ({ locals, url, cookies }) => {
   }
   const data = (await res.json()) as { authorize_url?: string };
   if (!data.authorize_url) throw redirect(303, "/login?google=unavailable");
-  throw redirect(303, data.authorize_url);
+  // Kit 3 refuses external redirects unless the origin is allowlisted. Only Google's
+  // authorize endpoint may be a target, so a tampered API response cannot redirect elsewhere.
+  throw redirect(303, data.authorize_url, { external: ["https://accounts.google.com"] });
 };

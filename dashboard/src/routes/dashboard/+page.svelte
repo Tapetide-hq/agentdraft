@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
-  import { fmtDate } from "$lib/format";
+  import Seo from "#lib/Seo.svelte";
+  import { fmtDate } from "#lib/format.ts";
   let { data } = $props();
 
   // Fail CLOSED: a draft is shown as public only when the API says so explicitly. If the

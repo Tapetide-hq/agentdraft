@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { apiFetch } from "$lib/server/api";
-import { safeNext } from "$lib/server/next";
+import { apiFetch } from "#lib/server/api.ts";
+import { safeNext } from "#lib/server/next.ts";
 
 // GET /auth/google/callback — Google redirects the browser back here with ?code&state.
 //

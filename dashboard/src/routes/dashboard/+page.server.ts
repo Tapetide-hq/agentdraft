@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import { apiJson } from "$lib/server/api";
-import { requireKey } from "$lib/server/guard";
+import { apiJson } from "#lib/server/api.ts";
+import { requireKey } from "#lib/server/guard.ts";
 
 interface Draft {
   id: string;

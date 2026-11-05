@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Seo from "$lib/Seo.svelte";
-  import { fmtDate } from "$lib/format";
+  import Seo from "#lib/Seo.svelte";
+  import { fmtDate } from "#lib/format.ts";
   let { data } = $props();
   // $derived: navigating from one draft to another reuses this component, so a plain
   // `const draft = data.draft` would keep showing the PREVIOUS draft's title and id.

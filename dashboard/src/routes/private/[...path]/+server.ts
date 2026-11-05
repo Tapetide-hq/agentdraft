@@ -1,6 +1,6 @@
 import { redirect, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { apiFetch } from "$lib/server/api";
+import { apiFetch } from "#lib/server/api.ts";
 
 // GET /private/d/:id            — a PRIVATE draft, streamed to its owner
 // GET /private/d/:id/v/:n       — a specific version

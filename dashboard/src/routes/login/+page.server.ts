@@ -1,8 +1,8 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { apiFetch } from "$lib/server/api";
-import { safeNext } from "$lib/server/next";
-import { dev } from "$app/environment";
+import { apiFetch } from "#lib/server/api.ts";
+import { safeNext } from "#lib/server/next.ts";
+import { dev } from "$app/env";
 
 // Ask the API whether Google OAuth is configured on this deployment. The button is
 // rendered only when it is genuinely usable — showing a dead sign-in button is worse
